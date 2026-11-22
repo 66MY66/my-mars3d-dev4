@@ -1,0 +1,11 @@
+.git
+.superpowers
+node_modules
+dist
+coverage
+test-results
+playwright-report
+tests
+docs
+deploy
+*.log

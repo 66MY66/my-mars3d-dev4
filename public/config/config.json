@@ -1,0 +1,2784 @@
+{
+  "scene": {
+    "center": {
+      "lat": 26.5,
+      "lng": 101.5,
+      "alt": 2140000,
+      "heading": 0,
+      "pitch": -90
+    },
+    "scene3DOnly": false,
+    "shadows": false,
+    "removeDblClick": true,
+    "sceneMode": 3,
+    "showSun": true,
+    "showMoon": true,
+    "showSkyBox": true,
+    "showSkyAtmosphere": true,
+    "fog": true,
+    "fxaa": true,
+    "requestRenderMode": false,
+    "contextOptions": {
+      "requestWebgl1": false,
+      "webgl": {
+        "preserveDrawingBuffer": true
+      }
+    },
+    "globe": {
+      "depthTestAgainstTerrain": false,
+      "baseColor": "#546a53",
+      "showGroundAtmosphere": true,
+      "enableLighting": false
+    },
+    "cameraController": {
+      "zoomFactor": 3.0,
+      "minimumZoomDistance": 1,
+      "maximumZoomDistance": 50000000,
+      "enableRotate": true,
+      "enableTranslate": true,
+      "enableTilt": true,
+      "enableZoom": true,
+      "enableCollisionDetection": true,
+      "minimumCollisionTerrainHeight": 15000,
+      "maxBounds": {
+        "west": 97.5,
+        "east": 105.5,
+        "south": 21.0,
+        "north": 32.0
+      }
+    }
+  },
+  "control": {
+    "toolbar": {
+      "position": "left-bottom"
+    },
+    "homeButton": {
+      "insertIndex": 0
+    },
+    "fullscreenButton": {
+      "insertIndex": 1
+    },
+    "navigationHelpButton": {
+      "insertIndex": 5
+    },
+    "baseLayerPicker": false,
+    "sceneModePicker": {
+      "insertIndex": 4
+    },
+    "vrButton": false,
+    "animation": false,
+    "timeline": false,
+    "infoBox": false,
+    "geocoder": false,
+    "selectionIndicator": false,
+    "showRenderLoopErrors": true,
+    "contextmenu": {
+      "hasDefault": false
+    },
+    "mouseDownView": true,
+    "zoom": {
+      "insertIndex": 2
+    },
+    "compass": {
+      "bottom": "toolbar",
+      "left": "5px"
+    },
+    "distanceLegend": {
+      "left": "10px",
+      "bottom": "2px"
+    },
+    "locationBar": {
+      "crs": "CGCS2000_GK_Zone_3",
+      "crsDecimal": 0,
+      "template": "<div>经度:{lng}</div> <div>纬度:{lat}</div> <div class='hide1000'>横{crsx}  纵{crsy}</div> <div>海拔：{alt}米</div> <div class='hide700'>层级：{level}</div><div>方向：{heading}°</div> <div>俯仰角：{pitch}°</div><div class='hide700'>视高：{cameraHeight}米</div>"
+    }
+  },
+  "method": {
+    "templateValues": {
+      "mars3d_data": "//data.mars3d.cn"
+    }
+  },
+  "terrain": {
+    "url": "https://data.mars3d.cn/terrain",
+    "show": true,
+    "clip": true,
+    "comment": "地形服务使用 Mars3D 官方 CDN，如需使用本地 eoAPI DEM 服务请修改 url"
+  },
+  "basemaps": [
+    {
+      "id": 10,
+      "pid": 110,
+      "name": "eoAPI本地底图服务",
+      "type": "group"
+    },
+    {
+      "pid": 10,
+      "name": "高德影像(本地)",
+      "icon": "./img/thumbnail/basemap/gaode_img.png",
+      "type": "group",
+      "layers": [
+        {
+          "name": "底图",
+          "type": "xyz",
+          "url": "https://webst01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=6&x={x}&y={y}&z={z}"
+        },
+        {
+          "name": "注记",
+          "type": "xyz",
+          "url": "https://webst01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}"
+        }
+      ],
+      "show": true
+    },
+    {
+      "id": 11,
+      "pid": 110,
+      "name": "在线地图服务（需外网）",
+      "type": "group"
+    },
+    {
+      "pid": 11,
+      "name": "高德影像",
+      "icon": "./img/thumbnail/basemap/gaode_img.png",
+      "type": "group",
+      "layers": [
+        {
+          "name": "底图",
+          "type": "gaode",
+          "layer": "img_d"
+        },
+        {
+          "name": "注记",
+          "type": "gaode",
+          "layer": "img_z"
+        }
+      ],
+      "show": false
+    },
+    {
+      "pid": 11,
+      "name": "高德电子",
+      "type": "gaode",
+      "icon": "./img/thumbnail/basemap/gaode_vec.png",
+      "layer": "vec",
+      "show": false
+    },
+    {
+      "pid": 11,
+      "name": "百度影像",
+      "type": "group",
+      "icon": "./img/thumbnail/basemap/bd_img.png",
+      "layers": [
+        {
+          "name": "底图",
+          "type": "baidu",
+          "layer": "img_d"
+        },
+        {
+          "name": "注记",
+          "type": "baidu",
+          "layer": "img_z"
+        }
+      ],
+      "show": false
+    },
+    {
+      "pid": 11,
+      "name": "百度电子",
+      "icon": "./img/thumbnail/basemap/bd_vec.png",
+      "type": "baidu",
+      "layer": "vec",
+      "show": false
+    },
+    {
+      "pid": 11,
+      "name": "腾讯影像",
+      "icon": "./img/thumbnail/basemap/tencent_img.png",
+      "type": "group",
+      "layers": [
+        {
+          "name": "底图",
+          "type": "tencent",
+          "layer": "img_d"
+        },
+        {
+          "name": "注记",
+          "type": "tencent",
+          "layer": "img_z"
+        }
+      ],
+      "show": false
+    },
+    {
+      "pid": 11,
+      "name": "腾讯电子",
+      "icon": "./img/thumbnail/basemap/tencent_vec.png",
+      "type": "tencent",
+      "layer": "vec",
+      "show": false
+    },
+    {
+      "pid": 11,
+      "name": "ArcGIS影像",
+      "icon": "./img/thumbnail/basemap/arcgis_img.png",
+      "type": "xyz",
+      "url": "https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      "enablePickFeatures": false,
+      "show": false
+    }
+  ],
+  "layers": [
+    {
+      "id": 100,
+      "name": "地震监测与评估",
+      "type": "group"
+    },
+    {
+      "id": 101,
+      "pid": 100,
+      "name": "地震地质基础数据",
+      "type": "group"
+    },
+    {
+      "id": 101001,
+      "pid": 101,
+      "name": "中国活动断层线",
+      "type": "geojson",
+      "url": "http://192.168.10.15:9002/rs-products/spatial/china-faults/active_faults.geojson",
+      "symbol": {
+        "type": "polylineP",
+        "styleOptions": {
+          "color": "#ff5a36",
+          "width": 2,
+          "opacity": 1,
+          "clampToGround": true
+        }
+      },
+      "popup": "断层名称：{FN_Ch}<br/>英文名称：{FN_En}<br/>断层性质：{Fea_Ch}<br/>活动时代：{AGE}<br/>时代描述：{AGE_Des}<br/>数据出处：{RefE}",
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "detailProfile": "china-active-faults",
+        "source": "eoAPI STAC / GMT 中国地理数据集 v0.4.0",
+        "collection": "spatial-thematic",
+        "itemId": "SP-china-active-faults",
+        "geometryType": "LineString",
+        "featureCount": 10534,
+        "crs": "EPSG:4326",
+        "updatedAt": "2026-10-31T11:44:05Z"
+      }
+    },
+    {
+      "id": 110,
+      "name": "底图与辅助",
+      "type": "group"
+    },
+    {
+      "id": 51,
+      "pid": 110,
+      "name": "辅助图层",
+      "type": "group"
+    },
+    {
+      "pid": 51,
+      "type": "graticule",
+      "name": "经纬网格",
+      "show": false
+    },
+    {
+      "pid": 51,
+      "name": "行政区划界线",
+      "type": "tdt",
+      "layer": "xzqh",
+      "mapSplit": false,
+      "show": false
+    },
+    {
+      "pid": 51,
+      "name": "高德实时路况",
+      "type": "gaode",
+      "layer": "time",
+      "minimumTerrainLevel": 4,
+      "minimumLevel": 4,
+      "proxy": "//server.mars3d.cn/proxy/",
+      "mapSplit": false,
+      "show": false
+    },
+    {
+      "pid": 51,
+      "name": "百度实时路况",
+      "type": "baidu",
+      "layer": "time",
+      "mapSplit": false,
+      "show": false
+    },
+    {
+      "id": 52,
+      "name": "地形服务",
+      "type": "group"
+    },
+    {
+      "pid": 52,
+      "type": "terrain",
+      "name": "Cesium Ion 地形",
+      "terrainType": "ion",
+      "radio": true,
+      "show": false
+    },
+    {
+      "pid": 52,
+      "type": "terrain",
+      "name": "Mars3D地形",
+      "terrainType": "xyz",
+      "url": "{mars3d_data}/terrain",
+      "radio": true,
+      "show": false
+    },
+    {
+      "pid": 52,
+      "type": "terrain",
+      "name": "ArcGIS地形",
+      "terrainType": "arcgis",
+      "url": "https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer",
+      "radio": true,
+      "show": false
+    },
+    {
+      "pid": 52,
+      "type": "terrain",
+      "name": "无地形",
+      "terrainType": "none",
+      "radio": true,
+      "show": false
+    },
+    {
+      "id": 53,
+      "name": "矢量数据",
+      "type": "group"
+    },
+    {
+      "id": 5310,
+      "pid": 53,
+      "name": "GeoJSON数据",
+      "type": "group"
+    },
+    {
+      "pid": 5310,
+      "name": "云南州市边界",
+      "type": "geojson",
+      "url": "{mars3d_data}/file/geojson/areas/530000_full.json",
+      "symbol": {
+        "type": "polygon",
+        "styleOptions": {
+          "color": "rgba(15, 176, 255, 0.5)",
+          "outlineColor": "#ffffff",
+          "outlineWidth": 2,
+          "opacity": 0.7,
+          "label": {
+            "text": "{name}",
+            "opacity": 1,
+            "font_size": 18,
+            "color": "#ffffff",
+            "outline": true,
+            "outlineColor": "#000000",
+            "outlineWidth": 2
+          }
+        }
+      },
+      "popup": "{name}",
+      "show": false,
+      "flyTo": true
+    },
+    {
+      "pid": 5310,
+      "name": "中国省界",
+      "type": "geojson",
+      "url": "http://192.168.10.15:9002/rs-products/spatial/china-admin/province_border.geojson",
+      "symbol": {
+        "type": "polylineP",
+        "styleOptions": {
+          "color": "#ffffff",
+          "width": 2,
+          "opacity": 0.8
+        }
+      },
+      "show": false,
+      "flyTo": true
+    },
+    {
+      "pid": 5310,
+      "name": "平台标绘",
+      "type": "geojson",
+      "url": "{mars3d_data}/file/geojson/mars3d-draw.json",
+      "popup": "{type}{name}",
+      "show": false,
+      "flyTo": true
+    },
+    {
+      "id": 5320,
+      "pid": 53,
+      "name": "GeoServer WFS",
+      "type": "group"
+    },
+    {
+      "pid": 5320,
+      "name": "建筑物面",
+      "type": "wfs",
+      "url": "//server.mars3d.cn/geoserver/mars/ows",
+      "layer": "mars:hfjzw",
+      "parameters": {
+        "maxFeatures": 500
+      },
+      "minimumLevel": 15,
+      "symbol": {
+        "type": "polygonP",
+        "styleOptions": {
+          "color": "#00469c",
+          "outline": false,
+          "opacity": 1
+        }
+      },
+      "buildings": {
+        "cloumn": "floor"
+      },
+      "center": {
+        "lat": 31.818396,
+        "lng": 117.229083,
+        "alt": 2554.4,
+        "heading": 359.2,
+        "pitch": -83.1
+      },
+      "popup": "名称：{NAME}<br />层数：{floor}",
+      "show": false
+    },
+    {
+      "pid": 5320,
+      "name": "教育设施点",
+      "type": "wfs",
+      "url": "//server.mars3d.cn/geoserver/mars/ows",
+      "layer": "mars:hfjy",
+      "parameters": {
+        "maxFeatures": 500
+      },
+      "minimumLevel": 13,
+      "symbol": {
+        "type": "billboardP",
+        "styleOptions": {
+          "image": "/img/marker/mark-red.png",
+          "scaleByDistance": true,
+          "scaleByDistance_far": 20000,
+          "scaleByDistance_farValue": 0.6,
+          "scaleByDistance_near": 1000,
+          "scaleByDistance_nearValue": 1,
+          "clampToGround": true,
+          "label": {
+            "text": "{项目名称}",
+            "font_size": 15,
+            "color": "#ffffff",
+            "outline": true,
+            "outlineColor": "#000000",
+            "pixelOffsetY": -30
+          }
+        }
+      },
+      "popup": "all",
+      "show": false
+    },
+    {
+      "id": 54,
+      "name": "栅格数据服务",
+      "type": "group"
+    },
+    {
+      "id": 5410,
+      "pid": 54,
+      "name": "OGC WMS服务",
+      "type": "group"
+    },
+    {
+      "pid": 5410,
+      "name": "教育设施点",
+      "type": "wms",
+      "url": "//server.mars3d.cn/geoserver/mars/wms",
+      "layers": "mars:hfjy",
+      "crs": "EPSG:4326",
+      "parameters": {
+        "transparent": "true",
+        "format": "image/png"
+      },
+      "popup": "名称：{项目名称}<br />类型：{设施类型}<br />面积：{用地面积}亩<br />位置：{具体位置}",
+      "mapSplit": false,
+      "show": false,
+      "flyTo": true
+    },
+    {
+      "pid": 5410,
+      "name": "道路线",
+      "type": "wms",
+      "url": "//server.mars3d.cn/geoserver/mars/wms",
+      "layers": "mars:hfdl",
+      "crs": "EPSG:4326",
+      "parameters": {
+        "transparent": "true",
+        "format": "image/png"
+      },
+      "popup": "all",
+      "mapSplit": false,
+      "show": false,
+      "flyTo": true
+    },
+    {
+      "pid": 5410,
+      "name": "建筑物面",
+      "type": "wms",
+      "url": "//server.mars3d.cn/geoserver/mars/wms",
+      "layers": "mars:hfjzw",
+      "crs": "EPSG:4326",
+      "parameters": {
+        "transparent": "true",
+        "format": "image/png"
+      },
+      "highlight": {
+        "showTime": 5000,
+        "fill": true,
+        "color": "#2deaf7",
+        "opacity": 0.6,
+        "outline": true,
+        "outlineWidth": 3,
+        "outlineColor": "#e000d9",
+        "outlineOpacity": 1.0,
+        "clampToGround": true
+      },
+      "popup": "all",
+      "show": false,
+      "flyTo": true
+    },
+    {
+      "pid": 5410,
+      "name": "规划面",
+      "type": "wms",
+      "url": "//server.mars3d.cn/geoserver/mars/wms",
+      "layers": "mars:hfgh",
+      "crs": "EPSG:4326",
+      "parameters": {
+        "transparent": "true",
+        "format": "image/png"
+      },
+      "popup": "all",
+      "show": false,
+      "flyTo": true
+    },
+    {
+      "id": 5420,
+      "pid": 54,
+      "name": "ArcGIS瓦片",
+      "type": "group"
+    },
+    {
+      "pid": 5420,
+      "name": "合肥规划图",
+      "type": "arcgis_cache",
+      "url": "{mars3d_data}/arcgis_cache/hfgh/_alllayers/{z}/{y}/{x}.png",
+      "minimumLevel": 1,
+      "maximumLevel": 17,
+      "minimumTerrainLevel": 1,
+      "maximumTerrainLevel": 17,
+      "rectangle": {
+        "xmin": 116.846,
+        "xmax": 117.642,
+        "ymin": 31.533,
+        "ymax": 32.185
+      },
+      "show": false
+    },
+    {
+      "id": 55,
+      "name": "动态数据",
+      "type": "group"
+    },
+    {
+      "id": 5510,
+      "pid": 55,
+      "name": "CZML动态轨迹",
+      "type": "group"
+    },
+    {
+      "pid": 5510,
+      "name": "卫星轨道演示",
+      "type": "czml",
+      "url": "{mars3d_data}/file/czml/satellite-simple.czml",
+      "popup": "all",
+      "onWidget": "control-clock",
+      "radio": true,
+      "show": false,
+      "flyTo": true
+    },
+    {
+      "pid": 5510,
+      "name": "车辆轨迹",
+      "type": "czml",
+      "url": "{mars3d_data}/file/czml/car.czml",
+      "center": {
+        "lat": 40.894745,
+        "lng": 121.920252,
+        "alt": 904,
+        "heading": 64,
+        "pitch": -67
+      },
+      "onWidget": "control-clock",
+      "radio": true,
+      "show": false,
+      "flyTo": true
+    },
+    {
+      "id": 5520,
+      "pid": 55,
+      "name": "KML数据",
+      "type": "group"
+    },
+    {
+      "pid": 5520,
+      "name": "海上安全警告",
+      "type": "kml",
+      "url": "{mars3d_data}/file/kml/NAVWARN.kmz",
+      "popup": "all",
+      "show": false
+    },
+    {
+      "pid": 5520,
+      "name": "国境线",
+      "type": "kml",
+      "url": "{mars3d_data}/file/kml/countryboundary.kml",
+      "symbol": {
+        "styleOptions": {
+          "color": "#FED976",
+          "width": 2
+        }
+      },
+      "show": false
+    },
+    {
+      "pid": 5520,
+      "name": "省界线",
+      "type": "kml",
+      "url": "{mars3d_data}/file/kml/province.kml",
+      "symbol": {
+        "styleOptions": {
+          "color": "#00FF00",
+          "width": 2
+        }
+      },
+      "show": false
+    },
+    {
+      "id": 41,
+      "name": "基础",
+      "type": "group"
+    },
+    {
+      "id": 4110,
+      "pid": 41,
+      "name": "CMIP6 气候数据",
+      "type": "group"
+    },
+    {
+      "pid": 4110,
+      "name": "地表温度 (GISS-E2-1-G)",
+      "type": "wms",
+      "url": "http://192.168.10.15:5952/collections/CMIP6_daily_GISS-E2-1-G_tas/WMTSCapabilities.xml",
+      "layers": "CMIP6_daily_GISS-E2-1-G_tas",
+      "crs": "EPSG:4326",
+      "parameters": {
+        "transparent": "true",
+        "format": "image/png"
+      },
+      "metadata": {
+        "source": "eoAPI STAC",
+        "description": "CMIP6 Daily Near-Surface Air Temperature from GISS-E2-1-G Model",
+        "temporalRange": "1950-1951"
+      },
+      "show": false,
+      "flyTo": false
+    },
+    {
+      "id": 4120,
+      "pid": 41,
+      "name": "人口密度数据",
+      "type": "group"
+    },
+    {
+      "id": 412001,
+      "pid": 4120,
+      "name": "全国GDP格网（2020）",
+      "type": "xyz",
+      "url": "/api/titiler/collections/spatial-thematic/items/SP-china-gdp2020/tiles/WebMercatorQuad/{z}/{x}/{y}.png?assets=visual&resampling=nearest",
+      "minimumLevel": 2,
+      "maximumLevel": 14,
+      "rectangle": {
+        "xmin": 67.5,
+        "ymin": 15.0,
+        "xmax": 136.8,
+        "ymax": 55.0
+      },
+      "metadata": {
+        "source": "eoAPI STAC",
+        "detailProfile": "china-socioeconomic-grid",
+        "collection": "spatial-thematic",
+        "itemId": "SP-china-gdp2020",
+        "metricName": "GDP密度",
+        "unit": "万元/平方公里",
+        "bandDescription": "gdp_10k_cny_per_km2",
+        "valueRange": "0～979493",
+        "total": "约 1008553 亿元",
+        "updatedAt": "2026-10-30T11:42:59Z",
+        "description": "China 2020 GDP density visual asset",
+        "temporalRange": "2020"
+      },
+      "show": true,
+      "hasOpacity": true,
+      "flyTo": true
+    },
+    {
+      "id": 412002,
+      "pid": 4120,
+      "name": "全国人口格网（2020）",
+      "type": "xyz",
+      "url": "/api/titiler/collections/spatial-thematic/items/SP-china-pop2020/tiles/WebMercatorQuad/{z}/{x}/{y}.png?assets=visual&resampling=nearest",
+      "minimumLevel": 2,
+      "maximumLevel": 14,
+      "rectangle": {
+        "xmin": 67.5,
+        "ymin": 15.0,
+        "xmax": 136.8,
+        "ymax": 55.0
+      },
+      "metadata": {
+        "source": "eoAPI STAC",
+        "detailProfile": "china-socioeconomic-grid",
+        "collection": "spatial-thematic",
+        "itemId": "SP-china-pop2020",
+        "metricName": "人口密度",
+        "unit": "人/平方公里",
+        "bandDescription": "people_per_km2",
+        "valueRange": "0～30571",
+        "total": "约 13.88 亿人",
+        "updatedAt": "2026-10-30T11:42:07Z",
+        "description": "China 2020 population grid visual asset",
+        "temporalRange": "2020"
+      },
+      "show": true,
+      "hasOpacity": true,
+      "flyTo": true
+    },
+    {
+      "id": 4130,
+      "pid": 41,
+      "name": "NOAA 应急影像",
+      "type": "group"
+    },
+    {
+      "pid": 4130,
+      "name": "NOAA 紧急响应数据",
+      "type": "wms",
+      "url": "http://192.168.10.15:5952/collections/noaa-emergency-response/WMTSCapabilities.xml",
+      "layers": "noaa-emergency-response",
+      "crs": "EPSG:4326",
+      "parameters": {
+        "transparent": "true",
+        "format": "image/png"
+      },
+      "metadata": {
+        "source": "eoAPI STAC",
+        "description": "NOAA Emergency Response Imagery hosted on AWS",
+        "temporalRange": "2005+"
+      },
+      "show": false,
+      "flyTo": false
+    },
+    {
+      "id": 4140,
+      "pid": 41,
+      "name": "Maxar 卫星影像",
+      "type": "group"
+    },
+    {
+      "pid": 4140,
+      "name": "Maxar 开放数据",
+      "type": "wms",
+      "url": "http://192.168.10.15:5952/collections/maxar-opendata/WMTSCapabilities.xml",
+      "layers": "maxar-opendata",
+      "crs": "EPSG:4326",
+      "parameters": {
+        "transparent": "true",
+        "format": "image/png"
+      },
+      "metadata": {
+        "source": "eoAPI STAC",
+        "description": "Maxar Open Data Program satellite imagery"
+      },
+      "show": false,
+      "flyTo": false
+    },
+    {
+      "id": 4150,
+      "pid": 41,
+      "name": "开放航拍影像",
+      "type": "group"
+    },
+    {
+      "pid": 4150,
+      "name": "OpenAerialMap",
+      "type": "wms",
+      "url": "http://192.168.10.15:5952/collections/open-aerial-map/WMTSCapabilities.xml",
+      "layers": "open-aerial-map",
+      "crs": "EPSG:4326",
+      "parameters": {
+        "transparent": "true",
+        "format": "image/png"
+      },
+      "metadata": {
+        "source": "eoAPI STAC",
+        "description": "OpenAerialMap community contributed imagery"
+      },
+      "show": false,
+      "flyTo": false
+    },
+    {
+      "id": 50,
+      "pid": 100,
+      "name": "地震中短期宏观异常检测",
+      "type": "group"
+    },
+    {
+      "pid": 50,
+      "type": "graticule",
+      "name": "地震宏观异常分析"
+    },
+    {
+      "pid": 50,
+      "name": "地震宏观异常时空演化趋势",
+      "type": "tdt",
+      "layer": "xzqh",
+      "mapSplit": false
+    },
+    {
+      "id": 60,
+      "pid": 100,
+      "name": "地震区域风险监测",
+      "type": "group"
+    },
+    {
+      "pid": 60,
+      "type": "terrain",
+      "name": "地表形变风险",
+      "terrainType": "ion",
+      "radio": true
+    },
+    {
+      "pid": 60,
+      "type": "terrain",
+      "name": "地质灾害风险",
+      "terrainType": "xyz",
+      "url": "{mars3d_data}/terrain",
+      "radio": true
+    },
+    {
+      "id": 70,
+      "name": "卫星遥感产品",
+      "type": "group"
+    },
+    {
+      "id": 7060,
+      "pid": 70,
+      "name": "热异常时空演化",
+      "type": "group"
+    },
+    {
+      "id": 706001,
+      "pid": 7060,
+      "name": "演化过程演示",
+      "type": "graphic",
+      "data": [
+        {
+          "type": "polylineP",
+          "name": "热异常演化轨迹示例",
+          "positions": [
+            [
+              100.5,
+              25.0
+            ],
+            [
+              101.0,
+              25.5
+            ],
+            [
+              101.5,
+              26.0
+            ],
+            [
+              102.0,
+              26.5
+            ],
+            [
+              102.5,
+              27.0
+            ]
+          ],
+          "style": {
+            "color": "#ff0000",
+            "width": 3,
+            "clampToGround": true
+          }
+        }
+      ],
+      "onWidget": "layer-thermal-evolution",
+      "metadata": {
+        "detailProfile": "thermal-evolution-demo"
+      }
+    },
+    {
+      "pid": 7060,
+      "name": "历史热异常时序",
+      "type": "xyz",
+      "url": "http://192.168.10.15:5955/cog/tiles/{z}/{x}/{y}@1x?url=/data/thermal/thermal_timeline_2018_2023_COG.tif",
+      "minZoom": 6,
+      "maxZoom": 14,
+      "metadata": {
+        "source": "eoAPI",
+        "description": "2018-2023年热异常时空演化趋势"
+      },
+      "show": false,
+      "flyTo": false
+    },
+    {
+      "id": 7070,
+      "pid": 70,
+      "name": "辅助图层",
+      "type": "group"
+    },
+    {
+      "id": 707001,
+      "pid": 7070,
+      "name": "中国国界与省级行政区划界线",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/china-admin/province_border.geojson",
+      "symbol": {
+        "type": "polylineP",
+        "styleOptions": {
+          "color": "#ffd666",
+          "width": 2,
+          "opacity": 0.9
+        }
+      },
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "detailProfile": "china-admin-boundary",
+        "source": "eoAPI STAC",
+        "itemId": "SP-china-province-border",
+        "description": "中国国界、省级行政区划界线、十段线及南海诸岛",
+        "updatedAt": "2026-10-31T11:44:14Z"
+      }
+    },
+    {
+      "id": 40,
+      "name": "卫星遥感",
+      "type": "group"
+    },
+    {
+      "id": 4020,
+      "pid": 40,
+      "name": "地表温度",
+      "type": "group"
+    },
+    {
+      "id": 402001,
+      "pid": 4020,
+      "name": "Landsat地表温度（丽江—大理，2026-02—04）",
+      "type": "xyz",
+      "url": "/api/titiler/collections/spatial-thematic/items/SP-landsat-lst-20260216/tiles/WebMercatorQuad/{z}/{x}/{y}.png?assets=visual&resampling=nearest",
+      "minimumLevel": 0,
+      "maximumLevel": 12,
+      "rectangle": {
+        "xmin": 100.726296,
+        "ymin": 25.388546,
+        "xmax": 103.209958,
+        "ymax": 27.872208
+      },
+      "hasOpacity": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "itemId": "SP-landsat-lst-20260216",
+        "description": "丽江—大理 Landsat 地表温度样例栅格",
+        "temporalRange": "2026-02-16/2026-04-15",
+        "collection": "spatial-thematic",
+        "dataContent": "Landsat SR 地表温度栅格",
+        "format": "Cloud Optimized GeoTIFF（COG）",
+        "time": "2026-02-16 至 2026-04-15",
+        "crs": "EPSG:4326（WGS 84）",
+        "resolution": "0.28°",
+        "rasterSize": "9 × 9 像元",
+        "extent": "东经 100.726296°～103.209958°；北纬 25.388546°～27.872208°",
+        "valueRange": "约 10.97～32.53",
+        "mean": "约 22.75",
+        "standardDeviation": "约 4.82",
+        "unitStatus": "未标注",
+        "timeStructure": "单幅栅格，不是多期时间序列",
+        "dataNote": "上图和点查以实际网格坐标范围为准",
+        "detailSections": [
+          {
+            "title": "基本信息",
+            "fields": [
+              { "label": "图层名称", "key": "name" },
+              { "label": "图层类型", "key": "type" },
+              { "label": "图层 ID", "key": "id" },
+              { "label": "数据来源", "key": "source" },
+              { "label": "STAC Item ID", "key": "itemId" },
+              { "label": "所属集合", "key": "collection" }
+            ]
+          },
+          {
+            "title": "数据信息",
+            "fields": [
+              { "label": "数据内容", "key": "dataContent" },
+              { "label": "数据格式", "key": "format" },
+              { "label": "数据时段", "key": "time" },
+              { "label": "源数据坐标系", "key": "crs" },
+              { "label": "像元分辨率", "key": "resolution" },
+              { "label": "栅格尺寸", "key": "rasterSize" },
+              { "label": "空间范围", "key": "extent" }
+            ]
+          },
+          {
+            "title": "数值信息",
+            "fields": [
+              { "label": "像元值范围", "key": "valueRange" },
+              { "label": "平均值", "key": "mean" },
+              { "label": "标准差", "key": "standardDeviation" },
+              { "label": "数值单位", "key": "unitStatus" }
+            ]
+          },
+          {
+            "title": "数据说明",
+            "fields": [
+              { "label": "时间形态", "key": "timeStructure" },
+              { "label": "使用说明", "key": "dataNote" }
+            ]
+          }
+        ]
+      },
+      "show": true,
+      "flyTo": true
+    },
+    {
+      "id": 5030,
+      "pid": 40,
+      "name": "归一化差值植被指数",
+      "type": "group",
+      "metadata": {
+        "source": "Sentinel-2",
+        "resolution": "10m",
+        "time": "2023-10-01",
+        "crs": "EPSG:4326",
+        "remark": "归一化差值植被指数图层"
+      }
+    },
+    {
+      "pid": 5030,
+      "name": "Sentinel-2 NDVI",
+      "type": "xyz",
+      "url": "http://192.168.10.15:5955/cog/tiles/{z}/{x}/{y}@1x?url=/data/sentinel2/S2_NDVI_Yunnan_2023_COG.tif&rescale=-1,1&colormap_name=ndvi",
+      "minZoom": 8,
+      "maxZoom": 18,
+      "metadata": {
+        "source": "eoAPI titiler",
+        "description": "Sentinel-2 NDVI植被指数"
+      },
+      "show": false,
+      "flyTo": false
+    },
+    {
+      "pid": 5030,
+      "name": "NDVI变化率",
+      "type": "xyz",
+      "url": "http://192.168.10.15:5955/cog/tiles/{z}/{x}/{y}@1x?url=/data/sentinel2/S2_NDVI_trend_COG.tif&rescale=-0.2,0.2&colormap_name=rdbu",
+      "minZoom": 8,
+      "maxZoom": 18,
+      "metadata": {
+        "source": "eoAPI分析",
+        "description": "NDVI年度变化趋势"
+      },
+      "show": false,
+      "flyTo": false
+    },
+    {
+      "id": 30,
+      "pid": 110,
+      "name": "基础地图",
+      "type": "group"
+    },
+    {
+      "id": 3070,
+      "pid": 30,
+      "name": "3D叠加图",
+      "type": "group"
+    },
+    {
+      "pid": 3070,
+      "type": "wfs",
+      "name": "3D热力图",
+      "url": "//server.mars3d.cn/geoserver/mars/ows",
+      "layer": "mars:hfjzw",
+      "parameters": {
+        "maxFeatures": 500
+      },
+      "minimumLevel": 15,
+      "symbol": {
+        "type": "polygonP",
+        "styleOptions": {
+          "color": "#00469c",
+          "outline": false,
+          "opacity": 1
+        }
+      },
+      "buildings": {
+        "cloumn": "floor"
+      },
+      "center": {
+        "lat": 31.818396,
+        "lng": 117.229083,
+        "alt": 2554.4,
+        "heading": 359.2,
+        "pitch": -83.1
+      },
+      "popup": "名称：{NAME}<br />层数：{floor}"
+    },
+    {
+      "pid": 90,
+      "type": "arcgis_wfs",
+      "name": "热红外遥感数据",
+      "url": "//server.mars3d.cn/arcgis/rest/services/mars/hefei/MapServer/28",
+      "minimumLevel": 14,
+      "symbol": {
+        "type": "polylineP",
+        "styleOptions": {
+          "color": "#3388ff",
+          "width": 3,
+          "clampToGround": true
+        },
+        "styleField": "NAME",
+        "styleFieldOptions": {
+          "祁门路": {
+            "color": "#8744c0",
+            "width": 3
+          },
+          "东流路": {
+            "color": "#f7ba2a",
+            "width": 3
+          },
+          "翡翠路": {
+            "color": "#20a0ff",
+            "width": 3
+          },
+          "岳西路": {
+            "color": "#50bfff",
+            "width": 3
+          }
+        }
+      },
+      "popup": "名称：{NAME}",
+      "center": {
+        "lat": 31.814176,
+        "lng": 117.225362,
+        "alt": 5105.3,
+        "heading": 359.2,
+        "pitch": -83.1
+      }
+    },
+    {
+      "pid": 90,
+      "type": "arcgis_wfs",
+      "name": "气象遥感数据",
+      "url": "//server.mars3d.cn/arcgis/rest/services/mars/hefei/MapServer/37",
+      "minimumLevel": 15,
+      "symbol": {
+        "styleOptions": {
+          "color": "#0d3685",
+          "outlineColor": "#0d3685",
+          "opacity": 0.8
+        }
+      },
+      "buildings": {
+        "cloumn": "floor"
+      },
+      "debuggerTileInfo": false,
+      "center": {
+        "lat": 31.816951,
+        "lng": 117.22898,
+        "alt": 1916.7,
+        "heading": 0.3,
+        "pitch": -78.8
+      },
+      "popup": "名称：{NAME}<br />层数：{floor}"
+    },
+    {
+      "id": 20,
+      "name": "三维数据",
+      "type": "group"
+    },
+    {
+      "id": 2010,
+      "pid": 20,
+      "name": "gltf模型",
+      "type": "group"
+    },
+    {
+      "pid": 2010,
+      "type": "graphic",
+      "name": "风力发电机",
+      "data": [
+        {
+          "type": "modelP",
+          "position": [
+            117.219071,
+            31.828783,
+            39.87
+          ],
+          "style": {
+            "url": "https://data.mars3d.cn/gltf/mars/fengche.gltf",
+            "scale": 50,
+            "heading": -93
+          }
+        }
+      ],
+      "popup": "示例信息，这是一个风力发电机",
+      "center": {
+        "lat": 31.821083,
+        "lng": 117.21832,
+        "alt": 832.64,
+        "heading": 2.3,
+        "pitch": -39.2
+      }
+    },
+    {
+      "pid": 2010,
+      "type": "graphic",
+      "name": "警车",
+      "data": [
+        {
+          "type": "modelP",
+          "position": [
+            117.217458,
+            31.815349,
+            35.03
+          ],
+          "style": {
+            "url": "https://data.mars3d.cn/gltf/mars/jingche/jingche.gltf",
+            "scale": 2,
+            "heading": -95,
+            "clampToGround": true
+          }
+        }
+      ],
+      "center": {
+        "lat": 31.815363,
+        "lng": 117.215958,
+        "alt": 107.35,
+        "heading": 90.7,
+        "pitch": -26.1
+      }
+    },
+    {
+      "id": 2040,
+      "pid": 20,
+      "name": "城市白模",
+      "type": "group"
+    },
+    {
+      "id": 204011,
+      "pid": 2040,
+      "type": "tileset",
+      "name": "合肥市区",
+      "url": "{mars3d_data}/3dtiles/jzw-hefei/tileset.json",
+      "maximumScreenSpaceError": 8,
+      "maxMemory": 1024,
+      "style": {
+        "color": {
+          "conditions": [
+            [
+              "true",
+              "color('rgba(42, 160, 224, 1)')"
+            ]
+          ]
+        }
+      },
+      "marsJzwStyle": true,
+      "highlight": {
+        "type": "click",
+        "color": "#FFFF00"
+      },
+      "popup": [
+        {
+          "field": "objectid",
+          "name": "编号"
+        },
+        {
+          "field": "name",
+          "name": "名称"
+        },
+        {
+          "field": "height",
+          "name": "楼高",
+          "unit": "米"
+        }
+      ],
+      "center": {
+        "lat": 31.786281,
+        "lng": 117.223716,
+        "alt": 3718,
+        "heading": 2,
+        "pitch": -45
+      }
+    },
+    {
+      "pid": 2040,
+      "type": "tileset",
+      "name": "合肥市区-带贴图",
+      "url": "{mars3d_data}/3dtiles/jzw-hefei-cz/tileset.json",
+      "maximumScreenSpaceError": 8,
+      "maxMemory": 1024,
+      "marsJzwStyle": true,
+      "highlight": {
+        "type": "click",
+        "color": "#FFFF00"
+      },
+      "popup": [
+        {
+          "field": "objectid",
+          "name": "编号"
+        },
+        {
+          "field": "remark",
+          "name": "名称"
+        },
+        {
+          "field": "height",
+          "name": "楼高",
+          "unit": "米"
+        }
+      ],
+      "center": {
+        "lat": 31.786281,
+        "lng": 117.223716,
+        "alt": 3718,
+        "heading": 2,
+        "pitch": -45
+      }
+    },
+    {
+      "id": 204012,
+      "pid": 2040,
+      "type": "tileset",
+      "name": "上海市区",
+      "url": "{mars3d_data}/3dtiles/jzw-shanghai/tileset.json",
+      "maximumScreenSpaceError": 4,
+      "maxMemory": 2048,
+      "style": {
+        "color": {
+          "conditions": [
+            [
+              "${floor} >= 200",
+              "rgba(45, 0, 75, 0.5)"
+            ],
+            [
+              "${floor} >= 100",
+              "rgb(170, 162, 204)"
+            ],
+            [
+              "${floor} >= 50",
+              "rgb(224, 226, 238)"
+            ],
+            [
+              "${floor} >= 25",
+              "rgb(252, 230, 200)"
+            ],
+            [
+              "${floor} >= 10",
+              "rgb(248, 176, 87)"
+            ],
+            [
+              "${floor} >= 5",
+              "rgb(198, 106, 11)"
+            ],
+            [
+              "true",
+              "rgb(127, 59, 8)"
+            ]
+          ]
+        }
+      },
+      "highlight": {
+        "type": "click",
+        "color": "#FFFF00"
+      },
+      "popup": [
+        {
+          "field": "name",
+          "name": "名称"
+        },
+        {
+          "field": "floor",
+          "name": "楼层"
+        }
+      ],
+      "center": {
+        "lat": 31.257341,
+        "lng": 121.466139,
+        "alt": 2170.8,
+        "heading": 122.2,
+        "pitch": -31.8
+      }
+    },
+    {
+      "id": 2050,
+      "pid": 20,
+      "name": "点云",
+      "type": "group"
+    },
+    {
+      "id": 202016,
+      "pid": 2050,
+      "type": "tileset",
+      "name": "高压线塔杆",
+      "url": "{mars3d_data}/3dtiles/pnts-ganta/tileset.json",
+      "maximumScreenSpaceError": 8,
+      "position": {
+        "alt": 31
+      },
+      "style": {
+        "color": {
+          "conditions": [
+            [
+              "(${Classification} >= 4) && (${Classification} < 5) ",
+              "color('#DC143C')"
+            ],
+            [
+              "(${Classification} >= 7) && (${Classification} < 8)  ",
+              "color('#7B68EE')"
+            ],
+            [
+              "(${Classification} >= 16) && (${Classification} < 17)  ",
+              "color('#00CED1')"
+            ],
+            [
+              "(${Classification} >= 17) && (${Classification} < 18)  ",
+              "color('#3CB371')"
+            ],
+            [
+              "(${Classification} >= 18) && (${Classification} < 19)  ",
+              "color('#FFFF00')"
+            ],
+            [
+              "(${Classification} >= 19) && (${Classification} < 20)  ",
+              "color('#FFA500')"
+            ],
+            [
+              "(${Classification} >= 20) && (${Classification} < 21)  ",
+              "color('#FF6347')"
+            ]
+          ]
+        }
+      },
+      "hasOpacity": false,
+      "center": {
+        "lat": 31.504746,
+        "lng": 118.264278,
+        "alt": 580,
+        "heading": 29,
+        "pitch": -49
+      }
+    },
+    {
+      "id": 2060,
+      "pid": 20,
+      "name": "BIM模型",
+      "type": "group"
+    },
+    {
+      "id": 20601121,
+      "pid": 2060,
+      "type": "tileset",
+      "name": "大学教学楼",
+      "url": "{mars3d_data}/3dtiles/bim-daxue/tileset.json",
+      "position": {
+        "lng": 117.251229,
+        "lat": 31.844015,
+        "alt": 31.2
+      },
+      "highlight": {
+        "type": "click",
+        "color": "#FFFF00"
+      },
+      "popup": "all",
+      "scenetree": "scenetree.json",
+      "center": {
+        "lat": 31.842516,
+        "lng": 117.25107,
+        "alt": 145,
+        "heading": 8,
+        "pitch": -39
+      }
+    },
+    {
+      "pid": 2060,
+      "type": "tileset",
+      "name": "轻轨地铁站",
+      "url": "{mars3d_data}/3dtiles/bim-ditiezhan/tileset.json",
+      "position": {
+        "lng": 117.203994,
+        "lat": 31.857999,
+        "alt": 28.9
+      },
+      "rotation": {
+        "z": 168.1
+      },
+      "maxMemory": 2048,
+      "highlight": {
+        "type": "click",
+        "color": "#00FF00"
+      },
+      "popup": "all",
+      "scenetree": "scenetree.json",
+      "center": {
+        "lat": 31.856125,
+        "lng": 117.204513,
+        "alt": 155,
+        "heading": 350,
+        "pitch": -31
+      }
+    },
+    {
+      "id": 206012,
+      "pid": 2060,
+      "type": "tileset",
+      "name": "桥梁",
+      "url": "{mars3d_data}/3dtiles/bim-qiaoliang/tileset.json",
+      "position": {
+        "lng": 117.096906,
+        "lat": 31.851564,
+        "alt": 45
+      },
+      "rotation": {
+        "z": 17.5
+      },
+      "maximumScreenSpaceError": 16,
+      "skipLevelOfDetail": true,
+      "loadSiblings": true,
+      "cullRequestsWhileMoving": true,
+      "cullRequestsWhileMovingMultiplier": 10,
+      "preferLeaves": true,
+      "progressiveResolutionHeightFraction": 0.5,
+      "dynamicScreenSpaceError": true,
+      "preloadWhenHidden": true,
+      "center": {
+        "lat": 31.849357,
+        "lng": 117.099194,
+        "alt": 306.2,
+        "heading": 327.1,
+        "pitch": -30.9
+      },
+      "scenetree": "scenetree.json",
+      "highlight": {
+        "type": "click",
+        "color": "#00FF00"
+      },
+      "popup": "all"
+    },
+    {
+      "id": 2020,
+      "pid": 20,
+      "name": "人工建模",
+      "type": "group"
+    },
+    {
+      "id": 202013,
+      "pid": 2020,
+      "type": "tileset",
+      "name": "地下管网",
+      "url": "{mars3d_data}/3dtiles/max-piping/tileset.json",
+      "position": {
+        "lng": 117.215457,
+        "lat": 31.843363,
+        "alt": -3.6
+      },
+      "rotation": {
+        "z": 336.7
+      },
+      "maximumScreenSpaceError": 8,
+      "highlight": {
+        "type": "click",
+        "color": "#00FF00"
+      },
+      "popup": "all",
+      "center": {
+        "lat": 31.838821,
+        "lng": 117.216402,
+        "alt": 461,
+        "heading": 0,
+        "pitch": -46
+      },
+      "msg": "演示数据，地下数据拖动时会在地面漂移"
+    },
+    {
+      "id": 202012,
+      "pid": 2020,
+      "type": "tileset",
+      "name": "石化工厂",
+      "url": "{mars3d_data}/3dtiles/max-shihua/tileset.json",
+      "position": {
+        "lng": 117.077158,
+        "lat": 31.659116,
+        "alt": -2.0
+      },
+      "maximumScreenSpaceError": 8,
+      "maxMemory": 2048,
+      "highlight": {
+        "type": "click",
+        "color": "#00FF00"
+      },
+      "popup": "all",
+      "scenetree": "scenetree.json",
+      "center": {
+        "lat": 31.654916,
+        "lng": 117.08278,
+        "alt": 279,
+        "heading": 316,
+        "pitch": -29
+      }
+    },
+    {
+      "id": 202030,
+      "pid": 2020,
+      "name": "水利闸门",
+      "type": "group",
+      "center": {
+        "lat": 29.794301,
+        "lng": 121.47998,
+        "alt": 262,
+        "heading": 191,
+        "pitch": -35
+      }
+    },
+    {
+      "pid": 202030,
+      "name": "闸门",
+      "type": "graphic",
+      "data": [
+        {
+          "type": "modelP",
+          "position": [
+            121.479813,
+            29.791278,
+            16
+          ],
+          "style": {
+            "url": "https://data.mars3d.cn/gltf/mars/zhamen.glb",
+            "heading": 105
+          }
+        }
+      ],
+      "center": {
+        "lat": 29.791607,
+        "lng": 121.479925,
+        "alt": 27,
+        "heading": 198,
+        "pitch": -18
+      }
+    },
+    {
+      "id": 202011,
+      "pid": 202030,
+      "type": "tileset",
+      "name": "整体",
+      "url": "{mars3d_data}/3dtiles/max-fsdzm/tileset.json",
+      "position": {
+        "alt": 15.2
+      },
+      "maximumScreenSpaceError": 8,
+      "center": {
+        "lat": 29.792675,
+        "lng": 121.480207,
+        "alt": 190.8,
+        "heading": 196.1,
+        "pitch": -49
+      }
+    },
+    {
+      "id": 2030,
+      "pid": 20,
+      "name": "倾斜摄影",
+      "type": "group"
+    },
+    {
+      "pid": 2030,
+      "type": "tileset",
+      "name": "大雁塔",
+      "url": "{mars3d_data}/3dtiles/qx-dyt/tileset.json",
+      "position": {
+        "alt": -27
+      },
+      "maximumScreenSpaceError": 1,
+      "center": {
+        "lat": 34.215516,
+        "lng": 108.960251,
+        "alt": 834,
+        "heading": 4,
+        "pitch": -48
+      },
+      "flat": {
+        "enabled": true,
+        "editHeight": -24
+      },
+      "flyTo": false,
+      "show": false
+    },
+    {
+      "pid": 2030,
+      "name": "校园(含单体)",
+      "type": "group",
+      "hasOpacity": true,
+      "center": {
+        "lat": 43.821193,
+        "lng": 125.143124,
+        "alt": 990,
+        "heading": 342,
+        "pitch": -50
+      },
+      "layers": [
+        {
+          "type": "geojson",
+          "name": "校园-单体化",
+          "url": "{mars3d_data}/file/geojson/dth-xuexiao-fd.json",
+          "symbol": {
+            "type": "polygonP",
+            "styleOptions": {
+              "color": "rgba(255, 255, 255, 0.01)",
+              "clampToGround": true,
+              "classification": true,
+              "buffer": 1,
+              "highlight": {
+                "type": "click",
+                "color": "rgba(255,255,0,0.4)"
+              }
+            }
+          },
+          "popup": [
+            {
+              "field": "name",
+              "name": "学校场所"
+            },
+            {
+              "field": "sfkf",
+              "name": "是否开放"
+            },
+            {
+              "field": "remark",
+              "name": "备注信息"
+            }
+          ]
+        },
+        {
+          "pid": 2030,
+          "type": "tileset",
+          "name": "校园",
+          "url": "{mars3d_data}/3dtiles/qx-xuexiao/tileset.json",
+          "position": {
+            "alt": 279.0
+          },
+          "maximumScreenSpaceError": 8
+        }
+      ]
+    },
+    {
+      "id": 203014,
+      "pid": 2030,
+      "type": "tileset",
+      "name": "县城社区",
+      "url": "{mars3d_data}/3dtiles/qx-shequ/tileset.json",
+      "position": {
+        "alt": 148.2
+      },
+      "maximumScreenSpaceError": 2,
+      "dynamicScreenSpaceError": true,
+      "cullWithChildrenBounds": false,
+      "center": {
+        "lat": 28.440864,
+        "lng": 119.486477,
+        "alt": 588.23,
+        "heading": 268.6,
+        "pitch": -37.8
+      },
+      "show": false,
+      "flyTo": false
+    },
+    {
+      "id": 203015,
+      "pid": 2030,
+      "name": "合肥天鹅湖",
+      "type": "tileset",
+      "url": "{mars3d_data}/3dtiles/qx-teh/tileset.json",
+      "position": {
+        "lng": 117.218434,
+        "lat": 31.81807,
+        "alt": 163
+      },
+      "maximumScreenSpaceError": 16,
+      "maxMemory": 2048,
+      "dynamicScreenSpaceError": true,
+      "cullWithChildrenBounds": false,
+      "skipLevelOfDetail": true,
+      "preferLeaves": true,
+      "center": {
+        "lat": 31.795308,
+        "lng": 117.21948,
+        "alt": 1820,
+        "heading": 0,
+        "pitch": -39
+      }
+    },
+    {
+      "id": 203013,
+      "pid": 2030,
+      "type": "geojson",
+      "name": "文庙-单体化",
+      "url": " {mars3d_data}/file/geojson/dth-wm.json",
+      "symbol": {
+        "type": "polygonP",
+        "styleOptions": {
+          "color": "rgba(255, 255, 255, 0.01)",
+          "clampToGround": true,
+          "classification": true,
+          "buffer": 1,
+          "highlight": {
+            "color": "rgba(255,255,0,0.4)"
+          }
+        }
+      },
+      "popup": [
+        {
+          "field": "name",
+          "name": "房屋名称"
+        },
+        {
+          "field": "jznf",
+          "name": "建造年份"
+        },
+        {
+          "field": "ssdw",
+          "name": "所属单位"
+        },
+        {
+          "field": "remark",
+          "name": "备注信息"
+        }
+      ]
+    },
+    {
+      "id": 203012,
+      "pid": 2030,
+      "type": "tileset",
+      "name": "文庙",
+      "url": "{mars3d_data}/3dtiles/qx-simiao/tileset.json",
+      "position": {
+        "alt": 38.8
+      },
+      "maximumScreenSpaceError": 8,
+      "dynamicScreenSpaceError": true,
+      "cullWithChildrenBounds": false,
+      "skipLevelOfDetail": true,
+      "preferLeaves": true,
+      "center": {
+        "lat": 33.589536,
+        "lng": 119.032216,
+        "alt": 145.08,
+        "heading": 3.1,
+        "pitch": -22.9
+      }
+    },
+    {
+      "id": 99,
+      "name": "数据图层",
+      "type": "group"
+    },
+    {
+      "id": 80,
+      "pid": 100,
+      "name": "地震灾害评估",
+      "type": "group"
+    },
+    {
+      "id": 103,
+      "pid": 100,
+      "name": "地震灾害评估",
+      "type": "group"
+    },
+    {
+      "id": 802001,
+      "pid": 103,
+      "name": "房屋损毁热力图（fake_damage10，测试数据）",
+      "type": "xyz",
+      "url": "/api/titiler/collections/building-damage-assessment/items/HD-fake_damage10-01a19a99/tiles/WebMercatorQuad/{z}/{x}/{y}.png?assets=data&rescale=0,2.983392&colormap_name=ylorrd",
+      "minimumLevel": 0,
+      "maximumLevel": 24,
+      "rectangle": {
+        "xmin": 101.5805,
+        "ymin": 26.5875,
+        "xmax": 101.5835,
+        "ymax": 26.5905
+      },
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "detailProfile": "building-damage-heatmap",
+        "source": "eoAPI STAC / 房屋损毁评估",
+        "collection": "building-damage-assessment",
+        "itemId": "HD-fake_damage10-01a19a99",
+        "runTag": "fake_damage10",
+        "runId": "01a19a99-9ff8-8cd6-85a7-6f3a69325110",
+        "assessmentTime": "2026-11-02T05:00:48.176340Z",
+        "updatedAt": "2026-11-02T10:24:11Z"
+      }
+    },
+    {
+      "id": 8050,
+      "pid": 101,
+      "name": "2017年九寨沟7.0级地震烈度圈",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/jiuzhaigou-20170808/intensity_zones.geojson",
+      "symbol": {
+        "type": "polygon",
+        "styleOptions": {
+          "color": "#ffd2da",
+          "opacity": 0.45,
+          "outline": true,
+          "outlineColor": "#a80000",
+          "outlineWidth": 2,
+          "clampToGround": true
+        },
+        "styleField": "intensity",
+        "styleFieldOptions": {
+          "6": {
+            "color": "#ffd2da"
+          },
+          "7": {
+            "color": "#ffbebe"
+          },
+          "8": {
+            "color": "#ff7f7f"
+          },
+          "9": {
+            "color": "#c82828"
+          }
+        }
+      },
+      "popup": "地震烈度：{intensity_label}度（{intensity}度）<br/>来源文件：{source_file}<br/>属性说明：{attribute_note}",
+      "rectangle": {
+        "xmin": 103.063897,
+        "ymin": 32.505733,
+        "xmax": 104.589473,
+        "ymax": 34.032076
+      },
+      "show": true,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "detailProfile": "jiuzhaigou-intensity",
+        "source": "eoAPI STAC",
+        "itemId": "SP-jiuzhaigou2017-intensity",
+        "eventTime": "2017-08-08T13:19:00Z",
+        "description": "随包评估矢量，仅用于历史案例展示，不替代正式地震烈度调查成果",
+        "updatedAt": "2026-10-31T11:43:57Z"
+      }
+    },
+    {
+      "id": 102,
+      "pid": 100,
+      "name": "基础地理数据",
+      "type": "group"
+    },
+    {
+      "id": 1020,
+      "pid": 102,
+      "name": "西南基础地理（1:25万）",
+      "type": "group"
+    },
+    {
+      "id": 1021,
+      "pid": 1020,
+      "name": "I48图幅（102°–108°E、32°–36°N）",
+      "type": "group"
+    },
+    {
+      "id": 1022,
+      "pid": 1020,
+      "name": "H48图幅（102°–108°E、28°–32°N）",
+      "type": "group"
+    },
+    {
+      "id": 102101,
+      "pid": 1021,
+      "name": "行政区面",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/basegeo-sw-250k/I48_build_BOUA.geojson",
+      "symbol": {
+        "type": "polygon",
+        "styleOptions": {
+          "color": "#f2c94c",
+          "opacity": 0.12,
+          "outline": true,
+          "outlineColor": "#b8860b",
+          "outlineWidth": 1.5,
+          "clampToGround": true
+        }
+      },
+      "popup": "名称：{NAME}<br/>行政区代码：{PAC}",
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "itemId": "SP-swchina-basegeo-250k",
+        "sheet": "I48",
+        "featureCode": "BOUA",
+        "detailProfile": "basegeo-250k"
+      }
+    },
+    {
+      "id": 102102,
+      "pid": 1021,
+      "name": "行政区界线",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/basegeo-sw-250k/I48_build_BOUL.geojson",
+      "symbol": {
+        "type": "polyline",
+        "styleOptions": {
+          "color": "#d64545",
+          "width": 2,
+          "clampToGround": true
+        }
+      },
+      "popup": "分类代码：{GB}",
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "itemId": "SP-swchina-basegeo-250k",
+        "sheet": "I48",
+        "featureCode": "BOUL",
+        "detailProfile": "basegeo-250k"
+      }
+    },
+    {
+      "id": 102103,
+      "pid": 1021,
+      "name": "公路",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/basegeo-sw-250k/I48_build_LRDL.geojson",
+      "symbol": {
+        "type": "polyline",
+        "styleOptions": {
+          "color": "#f39c12",
+          "width": 2,
+          "clampToGround": true,
+          "distanceDisplayCondition": true,
+          "distanceDisplayCondition_near": 0,
+          "distanceDisplayCondition_far": 1200000
+        }
+      },
+      "popup": "名称：{NAME}<br/>路线编号：{RN}<br/>道路类型：{TYPE}",
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "itemId": "SP-swchina-basegeo-250k",
+        "sheet": "I48",
+        "featureCode": "LRDL",
+        "detailProfile": "basegeo-250k"
+      }
+    },
+    {
+      "id": 102104,
+      "pid": 1021,
+      "name": "铁路",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/basegeo-sw-250k/I48_build_LRRL.geojson",
+      "symbol": {
+        "type": "polyline",
+        "styleOptions": {
+          "color": "#424242",
+          "width": 2.5,
+          "clampToGround": true
+        }
+      },
+      "popup": "名称：{NAME}<br/>路线编号：{RN}<br/>铁路类型：{TYPE}",
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "itemId": "SP-swchina-basegeo-250k",
+        "sheet": "I48",
+        "featureCode": "LRRL",
+        "detailProfile": "basegeo-250k"
+      }
+    },
+    {
+      "id": 102105,
+      "pid": 1021,
+      "name": "水系面",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/basegeo-sw-250k/I48_build_HYDA.geojson",
+      "symbol": {
+        "type": "polygon",
+        "styleOptions": {
+          "color": "#4aa3df",
+          "opacity": 0.45,
+          "outline": true,
+          "outlineColor": "#2471a3",
+          "outlineWidth": 1,
+          "clampToGround": true
+        }
+      },
+      "popup": "名称：{NAME}<br/>水系代码：{HYDC}<br/>周期：{PERIOD}",
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "itemId": "SP-swchina-basegeo-250k",
+        "sheet": "I48",
+        "featureCode": "HYDA",
+        "detailProfile": "basegeo-250k"
+      }
+    },
+    {
+      "id": 102106,
+      "pid": 1021,
+      "name": "水系线",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/basegeo-sw-250k/I48_build_HYDL.geojson",
+      "symbol": {
+        "type": "polyline",
+        "styleOptions": {
+          "color": "#3498db",
+          "width": 1.5,
+          "clampToGround": true,
+          "distanceDisplayCondition": true,
+          "distanceDisplayCondition_near": 0,
+          "distanceDisplayCondition_far": 1200000
+        }
+      },
+      "popup": "名称：{NAME}<br/>水系代码：{HYDC}<br/>周期：{PERIOD}",
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "itemId": "SP-swchina-basegeo-250k",
+        "sheet": "I48",
+        "featureCode": "HYDL",
+        "detailProfile": "basegeo-250k"
+      }
+    },
+    {
+      "id": 102107,
+      "pid": 1021,
+      "name": "居民地面",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/basegeo-sw-250k/I48_build_RESA.geojson",
+      "symbol": {
+        "type": "polygon",
+        "styleOptions": {
+          "color": "#c8a27c",
+          "opacity": 0.5,
+          "outline": true,
+          "outlineColor": "#8d6e63",
+          "outlineWidth": 1,
+          "clampToGround": true
+        }
+      },
+      "popup": "分类代码：{GB}",
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "itemId": "SP-swchina-basegeo-250k",
+        "sheet": "I48",
+        "featureCode": "RESA",
+        "detailProfile": "basegeo-250k"
+      }
+    },
+    {
+      "id": 102108,
+      "pid": 1021,
+      "name": "居民地点",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/basegeo-sw-250k/I48_build_RESP.geojson",
+      "symbol": {
+        "type": "point",
+        "styleOptions": {
+          "color": "#e74c3c",
+          "pixelSize": 6,
+          "outline": true,
+          "outlineColor": "#ffffff",
+          "outlineWidth": 1,
+          "clampToGround": true
+        }
+      },
+      "popup": "分类代码：{GB}",
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "itemId": "SP-swchina-basegeo-250k",
+        "sheet": "I48",
+        "featureCode": "RESP",
+        "detailProfile": "basegeo-250k"
+      }
+    },
+    {
+      "id": 102109,
+      "pid": 1021,
+      "name": "居民地注记",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/basegeo-sw-250k/I48_build_AGNP.geojson",
+      "symbol": {
+        "type": "label",
+        "styleOptions": {
+          "text": "{NAME}",
+          "font_size": 16,
+          "color": "#ffffff",
+          "outline": true,
+          "outlineColor": "#333333",
+          "outlineWidth": 2,
+          "clampToGround": true,
+          "distanceDisplayCondition": true,
+          "distanceDisplayCondition_near": 0,
+          "distanceDisplayCondition_far": 500000
+        }
+      },
+      "popup": "名称：{NAME}<br/>行政区名称：{XZNAME}<br/>分类：{CLASS}",
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "itemId": "SP-swchina-basegeo-250k",
+        "sheet": "I48",
+        "featureCode": "AGNP",
+        "detailProfile": "basegeo-250k"
+      }
+    },
+    {
+      "id": 102201,
+      "pid": 1022,
+      "name": "行政区面",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/basegeo-sw-250k/H48_build_BOUA.geojson",
+      "symbol": {
+        "type": "polygon",
+        "styleOptions": {
+          "color": "#f2c94c",
+          "opacity": 0.12,
+          "outline": true,
+          "outlineColor": "#b8860b",
+          "outlineWidth": 1.5,
+          "clampToGround": true
+        }
+      },
+      "popup": "名称：{NAME}<br/>行政区代码：{PAC}",
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "itemId": "SP-swchina-basegeo-250k",
+        "sheet": "H48",
+        "featureCode": "BOUA",
+        "detailProfile": "basegeo-250k"
+      }
+    },
+    {
+      "id": 102202,
+      "pid": 1022,
+      "name": "行政区界线",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/basegeo-sw-250k/H48_build_BOUL.geojson",
+      "symbol": {
+        "type": "polyline",
+        "styleOptions": {
+          "color": "#d64545",
+          "width": 2,
+          "clampToGround": true
+        }
+      },
+      "popup": "分类代码：{GB}",
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "itemId": "SP-swchina-basegeo-250k",
+        "sheet": "H48",
+        "featureCode": "BOUL",
+        "detailProfile": "basegeo-250k"
+      }
+    },
+    {
+      "id": 102203,
+      "pid": 1022,
+      "name": "公路",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/basegeo-sw-250k/H48_build_LRDL.geojson",
+      "symbol": {
+        "type": "polyline",
+        "styleOptions": {
+          "color": "#f39c12",
+          "width": 2,
+          "clampToGround": true,
+          "distanceDisplayCondition": true,
+          "distanceDisplayCondition_near": 0,
+          "distanceDisplayCondition_far": 1200000
+        }
+      },
+      "popup": "名称：{NAME}<br/>路线编号：{RN}<br/>道路类型：{TYPE}",
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "itemId": "SP-swchina-basegeo-250k",
+        "sheet": "H48",
+        "featureCode": "LRDL",
+        "detailProfile": "basegeo-250k"
+      }
+    },
+    {
+      "id": 102204,
+      "pid": 1022,
+      "name": "铁路",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/basegeo-sw-250k/H48_build_LRRL.geojson",
+      "symbol": {
+        "type": "polyline",
+        "styleOptions": {
+          "color": "#424242",
+          "width": 2.5,
+          "clampToGround": true
+        }
+      },
+      "popup": "名称：{NAME}<br/>路线编号：{RN}<br/>铁路类型：{TYPE}",
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "itemId": "SP-swchina-basegeo-250k",
+        "sheet": "H48",
+        "featureCode": "LRRL",
+        "detailProfile": "basegeo-250k"
+      }
+    },
+    {
+      "id": 102205,
+      "pid": 1022,
+      "name": "水系面",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/basegeo-sw-250k/H48_build_HYDA.geojson",
+      "symbol": {
+        "type": "polygon",
+        "styleOptions": {
+          "color": "#4aa3df",
+          "opacity": 0.45,
+          "outline": true,
+          "outlineColor": "#2471a3",
+          "outlineWidth": 1,
+          "clampToGround": true
+        }
+      },
+      "popup": "名称：{NAME}<br/>水系代码：{HYDC}",
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "itemId": "SP-swchina-basegeo-250k",
+        "sheet": "H48",
+        "featureCode": "HYDA",
+        "detailProfile": "basegeo-250k"
+      }
+    },
+    {
+      "id": 102206,
+      "pid": 1022,
+      "name": "水系线",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/basegeo-sw-250k/H48_build_HYDL.geojson",
+      "symbol": {
+        "type": "polyline",
+        "styleOptions": {
+          "color": "#3498db",
+          "width": 1.5,
+          "clampToGround": true,
+          "distanceDisplayCondition": true,
+          "distanceDisplayCondition_near": 0,
+          "distanceDisplayCondition_far": 1200000
+        }
+      },
+      "popup": "名称：{NAME}<br/>水系代码：{HYDC}<br/>周期：{PERIOD}",
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "itemId": "SP-swchina-basegeo-250k",
+        "sheet": "H48",
+        "featureCode": "HYDL",
+        "detailProfile": "basegeo-250k"
+      }
+    },
+    {
+      "id": 102207,
+      "pid": 1022,
+      "name": "居民地面",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/basegeo-sw-250k/H48_build_RESA.geojson",
+      "symbol": {
+        "type": "polygon",
+        "styleOptions": {
+          "color": "#c8a27c",
+          "opacity": 0.5,
+          "outline": true,
+          "outlineColor": "#8d6e63",
+          "outlineWidth": 1,
+          "clampToGround": true
+        }
+      },
+      "popup": "分类代码：{GB}",
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "itemId": "SP-swchina-basegeo-250k",
+        "sheet": "H48",
+        "featureCode": "RESA",
+        "detailProfile": "basegeo-250k"
+      }
+    },
+    {
+      "id": 102208,
+      "pid": 1022,
+      "name": "居民地点",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/basegeo-sw-250k/H48_build_RESP.geojson",
+      "symbol": {
+        "type": "point",
+        "styleOptions": {
+          "color": "#e74c3c",
+          "pixelSize": 6,
+          "outline": true,
+          "outlineColor": "#ffffff",
+          "outlineWidth": 1,
+          "clampToGround": true
+        }
+      },
+      "popup": "分类代码：{GB}<br/>角度：{ANGLE}",
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "itemId": "SP-swchina-basegeo-250k",
+        "sheet": "H48",
+        "featureCode": "RESP",
+        "detailProfile": "basegeo-250k"
+      }
+    },
+    {
+      "id": 102209,
+      "pid": 1022,
+      "name": "居民地注记",
+      "type": "geojson",
+      "url": "/api/rs-products/rs-products/spatial/basegeo-sw-250k/H48_build_AGNP.geojson",
+      "symbol": {
+        "type": "label",
+        "styleOptions": {
+          "text": "{NAME}",
+          "font_size": 16,
+          "color": "#ffffff",
+          "outline": true,
+          "outlineColor": "#333333",
+          "outlineWidth": 2,
+          "clampToGround": true,
+          "distanceDisplayCondition": true,
+          "distanceDisplayCondition_near": 0,
+          "distanceDisplayCondition_far": 500000
+        }
+      },
+      "popup": "名称：{NAME}<br/>行政区名称：{XZNAME}<br/>分类：{CLASS}",
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "itemId": "SP-swchina-basegeo-250k",
+        "sheet": "H48",
+        "featureCode": "AGNP",
+        "detailProfile": "basegeo-250k"
+      }
+    },
+    {
+      "id": 8010,
+      "pid": 80,
+      "name": "地震异常区域",
+      "type": "graphic",
+      "data": [],
+      "show": false,
+      "hasOpacity": true
+    },
+    {
+      "id": 8020,
+      "pid": 80,
+      "name": "房屋抗震能力",
+      "type": "graphic",
+      "data": [],
+      "show": false,
+      "hasOpacity": true
+    },
+    {
+      "id": 8030,
+      "pid": 80,
+      "name": "人员伤亡分布",
+      "type": "graphic",
+      "data": [],
+      "show": false,
+      "hasOpacity": true
+    },
+    {
+      "id": 8040,
+      "pid": 80,
+      "name": "经济损失",
+      "type": "graphic",
+      "data": [],
+      "show": false,
+      "hasOpacity": true
+    },
+    {
+      "id": 90,
+      "name": "高分辨率遥感数据",
+      "type": "group"
+    },
+    {
+      "id": 91,
+      "name": "影像产品",
+      "type": "group"
+    },
+    {
+      "id": 9101,
+      "pid": 91,
+      "name": "2-9 光学真彩色",
+      "type": "xyz",
+      "url": "http://192.168.10.15:5952/collections/fy3-mersi-l1/items/FY3H_MERSI_GRAN_L1_20260927_0700_1000M_V0/tiles/WebMercatorQuad/{z}/{x}/{y}.png?assets=visual",
+      "rectangle": {
+        "xmin": 73.44,
+        "ymin": 20.9,
+        "xmax": 108.21,
+        "ymax": 42.48
+      },
+      "show": true,
+      "hasOpacity": true,
+      "flyTo": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "collection": "fy3-mersi-l1",
+        "itemId": "FY3H_MERSI_GRAN_L1_20260927_0700_1000M_V0",
+        "temporalRange": "2026-09-27",
+        "description": "风云三号 MERSI 真彩色 visual 影像"
+      }
+    },
+    {
+      "id": 9102,
+      "pid": 91,
+      "name": "2-10 SAR 黑白",
+      "type": "xyz",
+      "url": "http://192.168.10.15:5952/collections/sentinel-1-sar/items/S1A_IW_GRDH_1SDV_20260927T100000_DEMO/tiles/WebMercatorQuad/{z}/{x}/{y}.png?assets=visual&rescale=0,0.3&colormap_name=gray",
+      "rectangle": {
+        "xmin": 103.2,
+        "ymin": 35.6,
+        "xmax": 104.2,
+        "ymax": 36.6
+      },
+      "show": true,
+      "hasOpacity": true,
+      "flyTo": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "collection": "sentinel-1-sar",
+        "itemId": "S1A_IW_GRDH_1SDV_20260927T100000_DEMO",
+        "temporalRange": "2026-09-27",
+        "description": "Sentinel-1 VV 幅度灰度影像，显示范围 0–0.3"
+      }
+    },
+    {
+      "id": 9103,
+      "pid": 91,
+      "name": "2-11 形变配色",
+      "type": "xyz",
+      "url": "http://192.168.10.15:5952/collections/insar-deformation/items/DEF-20261009151058-2ccbd7/tiles/WebMercatorQuad/{z}/{x}/{y}.png?assets=visual",
+      "rectangle": {
+        "xmin": 103.2,
+        "ymin": 35.4,
+        "xmax": 104.4,
+        "ymax": 36.6
+      },
+      "show": true,
+      "hasOpacity": true,
+      "flyTo": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "collection": "insar-deformation",
+        "itemId": "DEF-20261009151058-2ccbd7",
+        "description": "InSAR 形变速率配色 visual 影像"
+      }
+    },
+    {
+      "id": 9104,
+      "pid": 91,
+      "name": "2-12 热异常热力图",
+      "type": "xyz",
+      "url": "http://192.168.10.15:5952/collections/thermal-diff-timeseries/items/TD-kumamoto-2026-07-11/tiles/WebMercatorQuad/{z}/{x}/{y}.png?assets=visual",
+      "rectangle": {
+        "xmin": 128.5,
+        "ymin": 30.5,
+        "xmax": 132.5,
+        "ymax": 34.5
+      },
+      "show": true,
+      "hasOpacity": true,
+      "flyTo": true,
+      "metadata": {
+        "source": "eoAPI STAC",
+        "collection": "thermal-diff-timeseries",
+        "itemId": "TD-kumamoto-2026-07-11",
+        "temporalRange": "2026-07-11",
+        "description": "熊本热异常热力图；蓝色偏热，红色偏冷"
+      }
+    }
+  ],
+  "eoapiI18n": {
+    "collections": {
+      "ds_271dd141b39d": {
+        "title": "测试数据集2"
+      },
+      "ds_315aee74cdd5": {
+        "title": "发布测试数据集"
+      },
+      "ds_4d53c8a530e5": {
+        "title": "测试数据集"
+      },
+      "ds_bf915afb36ad": {
+        "title": "STAC测试数据集"
+      },
+      "earthquake_lab_demo": {
+        "title": "地震科学实验场示范数据集",
+        "description": "包含遥感影像、矢量数据、分析报告的综合示范数据集，展示平台数据管理能力",
+        "keywords": [
+          "地震",
+          "示范",
+          "遥感",
+          "矢量"
+        ]
+      },
+      "MAXAR_afghanistan_earthquake22": {
+        "title": "阿富汗地震",
+        "description": "2022年6月22日阿富汗发生5.9级地震，Maxar开放数据集提供灾后高清卫星影像",
+        "keywords": [
+          "地震",
+          "阿富汗",
+          "Maxar",
+          "光学影像",
+          "灾后评估"
+        ]
+      },
+      "MAXAR_BayofBengal_Cyclone_Mocha_May_23": {
+        "title": "孟加拉湾莫卡飓风 2023",
+        "description": "2023年5月孟加拉湾五级飓风莫卡登陆，Maxar开放数据集提供灾前灾后对比影像",
+        "keywords": [
+          "飓风",
+          "孟加拉湾",
+          "莫卡",
+          "Maxar",
+          "灾害"
+        ]
+      },
+      "MAXAR_cyclone_emnati22": {
+        "title": "埃马纳蒂飓风",
+        "description": "热带风暴埃马纳蒂登陆造成的灾害影像数据",
+        "keywords": [
+          "飓风",
+          "埃马纳蒂",
+          "Maxar",
+          "热带风暴"
+        ]
+      },
+      "MAXAR_Emilia_Romagna_Italy_flooding_may23": {
+        "title": "意大利艾米利亚-罗马涅洪涝 2023",
+        "description": "2023年5月意大利艾米利亚-罗马涅地区严重洪涝灾害影像",
+        "keywords": [
+          "洪涝",
+          "意大利",
+          "艾米利亚-罗马涅",
+          "Maxar"
+        ]
+      },
+      "MAXAR_Gambia_flooding_8_11_2022": {
+        "title": "冈比亚洪涝 2022",
+        "description": "2022年8-11月冈比亚创纪录洪涝灾害影像",
+        "keywords": [
+          "洪涝",
+          "冈比亚",
+          "Maxar",
+          "灾害"
+        ]
+      }
+    },
+    "summaryKeyLabels": {
+      "platform": "平台",
+      "instruments": "传感器",
+      "constellation": "星座",
+      "region": "区域",
+      "data_type": "数据类型",
+      "gsd": "分辨率",
+      "cloud_cover": "云量",
+      "provider": "提供方",
+      "license": "许可证"
+    },
+    "summaryValueLabels": {
+      "raster": "栅格",
+      "vector": "矢量",
+      "document": "文档",
+      "sentinel-1": "哨兵-1",
+      "sentinel-2": "哨兵-2",
+      "landsat-8": "陆地卫星-8",
+      "maxar": "Maxar卫星"
+    }
+  }
+}

@@ -1,0 +1,122 @@
+export const RETIRED_LAYER_NAMES = new Set([
+  "倾斜摄影", "文庙", "文庙-单体化", "合肥天鹅湖", "县城社区", "校园(含单体)", "大雁塔", "人工建模",
+  "水利闸门", "整体", "闸门", "石化工厂", "地下管网", "BIM模型", "桥梁", "轻轨地铁站", "大学教学楼",
+  "点云", "高压线塔杆", "城市白模", "上海市区", "合肥市区-带贴图", "合肥市区", "gltf模型", "警车",
+  "风力发电机", "无底图", "单张图片", "离线影像地图", "微软影像", "ArcGIS影像", "黑色底图", "绿色底图",
+  "蓝色底图", "腾讯电子", "腾讯影像", "百度电子", "CZML动态轨迹", "车辆轨迹", "卫星轨道演示", "合肥规划图",
+  "开放航拍影像", "OpenAerialMap", "Maxar 卫星影像", "Maxar 开放数据", "NOAA 应急影像", "NOAA 紧急响应数据"
+])
+
+export const RETIRED_LAYER_TREE_IDS = new Set([20, 50, 52, 53, 54, 55, 60, 80, 99, 110, 4110, 5030])
+
+export const LAYER_CHECKED_STORAGE_KEY = "mars3d_layer_checked_keys"
+
+type LayerStateStorage = Pick<Storage, "setItem">
+
+export function resetInitialBusinessLayerState<T extends Record<string, any>>(
+  options: T,
+  storage?: LayerStateStorage | null
+): T {
+  const closeLayers = (items: Array<Record<string, any>> = []) => {
+    items.forEach((item) => {
+      if (item?.type !== "group") {
+        item.show = false
+      }
+      if (Array.isArray(item?.layers)) {
+        closeLayers(item.layers)
+      }
+      if (Array.isArray(item?.children)) {
+        closeLayers(item.children)
+      }
+    })
+  }
+
+  closeLayers(Array.isArray(options?.layers) ? options.layers : [])
+  storage?.setItem(LAYER_CHECKED_STORAGE_KEY, "[]")
+  return options
+}
+
+/**
+ * Mars3D may materialize configured layers asynchronously after the map
+ * constructor returns. Re-apply the initial business-layer baseline once the
+ * map instance exists, while leaving the active basemap untouched.
+ */
+export function resetInitialMapLayerVisibility(map: any): void {
+  if (!map || typeof map.getLayers !== "function") {
+    return
+  }
+
+  const basemapIds = new Set<string>()
+  if (typeof map.getBasemaps === "function") {
+    try {
+      for (const basemap of map.getBasemaps(true) || []) {
+        if (basemap?.id != null) {
+          basemapIds.add(String(basemap.id))
+        }
+      }
+    } catch {
+      // Basemap discovery is best-effort; explicit basemap markers below are sufficient.
+    }
+  }
+
+  for (const layer of map.getLayers() || []) {
+    if (!layer || layer._isBasemap === true) {
+      continue
+    }
+    const id = String(layer.id ?? "")
+    const pid = String(layer.pid ?? layer.options?.pid ?? "")
+    if (basemapIds.has(id) || id === "10" || id === "11" || pid === "10" || pid === "11") {
+      continue
+    }
+    layer.show = false
+  }
+}
+
+export function isRetiredLayerMenuEntry(item: Record<string, any>, getById?: (id: string | number) => Record<string, any> | null | undefined): boolean {
+  let current: Record<string, any> | null | undefined = item
+  const visited = new Set<string>()
+  while (current) {
+    const id = String(current.id ?? "")
+    if (RETIRED_LAYER_TREE_IDS.has(Number(id)) || RETIRED_LAYER_NAMES.has(String(current.name || ""))) {
+      return true
+    }
+    const pid = String(current.pid ?? current.options?.pid ?? "")
+    if (!pid || visited.has(pid)) {
+      return false
+    }
+    visited.add(pid)
+    current = getById?.(pid)
+  }
+  return false
+}
+
+export function removeRetiredLayers<T extends Record<string, any>>(items: T[] = []): T[] {
+  const retiredIds = new Set(Array.from(RETIRED_LAYER_TREE_IDS, String))
+  let changed = true
+  while (changed) {
+    changed = false
+    items.forEach((item) => {
+      const id = String(item?.id ?? "")
+      const pid = String(item?.pid ?? "")
+      if (id && !retiredIds.has(id) && (retiredIds.has(pid) || RETIRED_LAYER_NAMES.has(String(item?.name || "")))) {
+        retiredIds.add(id)
+        changed = true
+      }
+    })
+  }
+
+  return items.filter((item) => {
+    const id = String(item?.id ?? "")
+    const pid = String(item?.pid ?? "")
+    return !RETIRED_LAYER_NAMES.has(String(item?.name || "")) && !retiredIds.has(id) && !retiredIds.has(pid)
+  }).map((item) => {
+    const next: Record<string, any> = { ...item }
+    if (Array.isArray(item.layers)) {
+      next.layers = removeRetiredLayers(item.layers)
+    }
+    if (Array.isArray(item.children)) {
+      next.children = removeRetiredLayers(item.children)
+    }
+    return next as T
+  })
+}
