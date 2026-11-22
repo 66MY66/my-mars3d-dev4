@@ -45,15 +45,22 @@
       </a-col>
     </a-row>
 
-    <a-card :bordered="false" class="access-data-card">
+    <div class="stats-cards-layout">
+    <a-card :bordered="false" :class="['access-data-card', { 'is-expanded': expandedCards.access }]">
       <template #title>
         <span class="access-data-title">接入数据</span>
       </template>
       <template #extra>
-        <a-radio-group v-model:value="accessPeriod" size="small" button-style="solid" @change="handleAccessPeriodChange">
+        <div class="card-display-actions">
+          <a-button type="text" class="card-expand-button" @click="toggleCard('access')">
+            <FullscreenExitOutlined v-if="expandedCards.access" />
+            <FullscreenOutlined v-else />
+          </a-button>
+          <a-radio-group v-model:value="accessPeriod" size="small" button-style="solid" @change="handleAccessPeriodChange">
           <a-radio-button value="month">月周期</a-radio-button>
           <a-radio-button value="week">周周期</a-radio-button>
-        </a-radio-group>
+          </a-radio-group>
+        </div>
       </template>
       <div class="access-data-content">
         <div ref="accessPieChart" class="access-pie-chart" />
@@ -78,6 +85,83 @@
     </a-card>
 
     <!-- 资源池列表 -->
+    <a-card :bordered="false" :class="['access-data-card', 'output-data-card', { 'is-expanded': expandedCards.output }]">
+      <template #title>
+        <span class="access-data-title">产出情况分布</span>
+      </template>
+      <template #extra>
+        <div class="card-display-actions">
+          <a-button type="text" class="card-expand-button" @click="toggleCard('output')">
+            <FullscreenExitOutlined v-if="expandedCards.output" />
+            <FullscreenOutlined v-else />
+          </a-button>
+          <a-radio-group v-model:value="outputPeriod" size="small" button-style="solid" @change="handleOutputPeriodChange">
+          <a-radio-button value="month">月周期</a-radio-button>
+          <a-radio-button value="week">周周期</a-radio-button>
+          </a-radio-group>
+        </div>
+      </template>
+      <div class="access-data-content">
+        <div ref="outputPieChart" class="access-pie-chart" />
+        <div class="access-detail-list">
+          <div v-for="item in outputCategories" :key="item.name" class="access-detail-row">
+            <span class="access-detail-name"><i :style="{ backgroundColor: item.color }" />{{ item.name }}</span>
+            <span class="access-detail-count">{{ item.count }}</span>
+            <span class="access-detail-percent">{{ item.percent }}%</span>
+          </div>
+        </div>
+        <div class="access-trend-wrap">
+          <div ref="outputTrendChart" class="access-trend-chart" />
+          <div v-if="hoverOutputDetail.visible" class="access-hover-detail">
+            <div class="access-hover-date">{{ hoverOutputDetail.date }}</div>
+            <div v-for="item in hoverOutputDetail.items" :key="item.name" class="access-hover-row">
+              <span class="access-hover-name"><i :style="{ backgroundColor: item.color }" />{{ item.name }}</span>
+              <strong>{{ item.count }}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </a-card>
+
+    <a-card :bordered="false" :class="['access-data-card', 'output-data-card', { 'is-expanded': expandedCards.upload }]">
+      <template #title>
+        <span class="access-data-title">数据上传情况</span>
+      </template>
+      <template #extra>
+        <div class="card-display-actions">
+          <a-button type="text" class="card-expand-button" @click="toggleCard('upload')">
+            <FullscreenExitOutlined v-if="expandedCards.upload" />
+            <FullscreenOutlined v-else />
+          </a-button>
+          <a-radio-group v-model:value="uploadPeriod" size="small" button-style="solid" @change="handleUploadPeriodChange">
+          <a-radio-button value="month">月周期</a-radio-button>
+          <a-radio-button value="week">周周期</a-radio-button>
+          </a-radio-group>
+        </div>
+      </template>
+      <div class="access-data-content">
+        <div ref="uploadPieChart" class="access-pie-chart" />
+        <div class="access-detail-list">
+          <div v-for="item in uploadCategories" :key="item.name" class="access-detail-row">
+            <span class="access-detail-name"><i :style="{ backgroundColor: item.color }" />{{ item.name }}</span>
+            <span class="access-detail-count">{{ item.count }}</span>
+            <span class="access-detail-percent">{{ item.percent }}%</span>
+          </div>
+        </div>
+        <div class="access-trend-wrap">
+          <div ref="uploadTrendChart" class="access-trend-chart" />
+          <div v-if="hoverUploadDetail.visible" class="access-hover-detail">
+            <div class="access-hover-date">{{ hoverUploadDetail.date }}</div>
+            <div v-for="item in hoverUploadDetail.items" :key="item.name" class="access-hover-row">
+              <span class="access-hover-name"><i :style="{ backgroundColor: item.color }" />{{ item.name }}</span>
+              <strong>{{ item.count }}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </a-card>
+    </div>
+
     <a-card :bordered="false" class="table-card">
       <template #title>
         <DatabaseOutlined /> 资源池列表
@@ -242,7 +326,9 @@ import {
   PlusOutlined,
   UploadOutlined,
   ReloadOutlined,
-  DatabaseOutlined
+  DatabaseOutlined,
+  FullscreenOutlined,
+  FullscreenExitOutlined
 } from "@ant-design/icons-vue"
 import { fromPool, toPoolPayload } from "../api/adapters"
 import { poolApi } from "../api/services"
@@ -258,6 +344,8 @@ export default {
     UploadOutlined,
     ReloadOutlined,
     DatabaseOutlined,
+    FullscreenOutlined,
+    FullscreenExitOutlined,
     AStatistic: Statistic,
     ABadge: Badge
   },
@@ -269,7 +357,28 @@ export default {
       accessPeriod: "month",
       accessPieInstance: null,
       accessTrendInstance: null,
+      outputPeriod: "month",
+      outputPieInstance: null,
+      outputTrendInstance: null,
+      expandedCards: {
+        access: false,
+        output: false,
+        upload: false
+      },
+      uploadPeriod: "month",
+      uploadPieInstance: null,
+      uploadTrendInstance: null,
       hoverAccessDetail: {
+        visible: false,
+        date: "",
+        items: []
+      },
+      hoverOutputDetail: {
+        visible: false,
+        date: "",
+        items: []
+      },
+      hoverUploadDetail: {
         visible: false,
         date: "",
         items: []
@@ -279,6 +388,18 @@ export default {
         { name: "气象数据", color: "#61DDAA", count: 76, percent: 28, daily: [] },
         { name: "遥感产品数据", color: "#65789B", count: 42, percent: 15, daily: [] },
         { name: "其他数据", color: "#F6BD16", count: 27, percent: 10, daily: [] }
+      ],
+      outputCategories: [
+        { name: "卫星遥感标准数据", color: "#5B8FF9", count: 86, percent: 43, daily: [] },
+        { name: "评估报告", color: "#61DDAA", count: 42, percent: 21, daily: [] },
+        { name: "风险监测成果", color: "#65789B", count: 38, percent: 19, daily: [] },
+        { name: "异常监测成果", color: "#F6BD16", count: 34, percent: 17, daily: [] }
+      ],
+      uploadCategories: [
+        { name: "卫星遥感标准数据", color: "#5B8FF9", count: 74, percent: 41, daily: [] },
+        { name: "评估报告", color: "#61DDAA", count: 46, percent: 26, daily: [] },
+        { name: "风险监测成果", color: "#65789B", count: 35, percent: 19, daily: [] },
+        { name: "异常监测成果", color: "#F6BD16", count: 25, percent: 14, daily: [] }
       ],
 
       // 统计数据
@@ -357,13 +478,21 @@ export default {
   mounted() {
     this.loadPools()
     this.$nextTick(() => this.renderAccessCharts())
+    this.$nextTick(() => this.renderOutputCharts())
+    this.$nextTick(() => this.renderUploadCharts())
     window.addEventListener("resize", this.resizeAccessCharts)
   },
   beforeUnmount() {
     window.removeEventListener("resize", this.resizeAccessCharts)
     this.accessPieInstance?.dispose()
     this.accessTrendInstance?.dispose()
+    this.outputPieInstance?.dispose()
+    this.outputTrendInstance?.dispose()
+    this.uploadPieInstance?.dispose()
+    this.uploadTrendInstance?.dispose()
     this.hoverAccessDetail.visible = false
+    this.hoverOutputDetail.visible = false
+    this.hoverUploadDetail.visible = false
   },
   computed: {
     filteredPoolList() {
@@ -378,8 +507,32 @@ export default {
     }
   },
   methods: {
+    toggleCard(cardKey) {
+      this.expandedCards[cardKey] = !this.expandedCards[cardKey]
+      this.$nextTick(() => {
+        if (cardKey === "access") {
+          this.renderAccessCharts()
+        }
+        if (cardKey === "output") {
+          this.renderOutputCharts()
+        }
+        if (cardKey === "upload") {
+          this.renderUploadCharts()
+        }
+        requestAnimationFrame(() => this.resizeAccessCharts())
+      })
+    },
+
     handleAccessPeriodChange() {
       this.renderAccessCharts()
+    },
+
+    handleOutputPeriodChange() {
+      this.renderOutputCharts()
+    },
+
+    handleUploadPeriodChange() {
+      this.renderUploadCharts()
     },
 
     renderAccessCharts() {
@@ -402,6 +555,12 @@ export default {
         tooltip: { trigger: "item", formatter: "{b}<br/>接入数量：{c}<br/>占比：{d}%" },
         series: [{ type: "pie", radius: ["58%", "78%"], center: ["50%", "50%"], label: { show: false }, data: this.accessCategories.map((item) => ({ name: item.name, value: item.count, itemStyle: { color: item.color } })) }]
       })
+      if (!this.expandedCards.access) {
+        this.accessTrendInstance?.dispose()
+        this.accessTrendInstance = null
+        this.hoverAccessDetail.visible = false
+        return
+      }
       this.accessTrendInstance.setOption({
         tooltip: { show: false },
         axisPointer: { show: true, type: "line", snap: true, lineStyle: { color: "#c9cdd4", type: "dashed" } },
@@ -432,6 +591,114 @@ export default {
     resizeAccessCharts() {
       this.accessPieInstance?.resize()
       this.accessTrendInstance?.resize()
+      this.outputPieInstance?.resize()
+      this.outputTrendInstance?.resize()
+      this.uploadPieInstance?.resize()
+      this.uploadTrendInstance?.resize()
+    },
+
+    renderOutputCharts() {
+      if (!this.$refs.outputPieChart || !this.$refs.outputTrendChart) {
+        return
+      }
+      const dates = getAccessDateRange(this.outputPeriod)
+      const tooltipDates = getAccessDateRange(this.outputPeriod, new Date(), "full")
+      const visibleCategories = this.outputCategories.filter((item) => item.count > 0)
+      visibleCategories.forEach((item, categoryIndex) => {
+        item.daily = Array.from({ length: dates.length }, (_, index) => Math.max(0, Math.round(4 + categoryIndex * 2 + Math.cos(index * 0.7 + categoryIndex) * 3 + (index % 4))))
+      })
+      const trend = buildAccessTrend(visibleCategories, dates)
+      this.outputPieInstance?.dispose()
+      this.outputTrendInstance?.dispose()
+      this.outputPieInstance = echarts.init(this.$refs.outputPieChart)
+      this.outputTrendInstance = echarts.init(this.$refs.outputTrendChart)
+      this.outputPieInstance.setOption({
+        tooltip: { trigger: "item", formatter: "{b}<br/>产出数量：{c}<br/>占比：{d}%" },
+        series: [{ type: "pie", radius: ["58%", "78%"], center: ["50%", "50%"], label: { show: false }, data: visibleCategories.map((item) => ({ name: item.name, value: item.count, itemStyle: { color: item.color } })) }]
+      })
+      if (!this.expandedCards.output) {
+        this.outputTrendInstance?.dispose()
+        this.outputTrendInstance = null
+        this.hoverOutputDetail.visible = false
+        return
+      }
+      this.outputTrendInstance.setOption({
+        tooltip: { show: false },
+        axisPointer: { show: true, type: "line", snap: true, lineStyle: { color: "#c9cdd4", type: "dashed" } },
+        legend: { top: 0, right: 0, icon: "circle", textStyle: { color: "#4e5969" }, data: trend.map((item) => item.name) },
+        grid: { left: 42, right: 12, top: 34, bottom: 28 },
+        xAxis: { type: "category", boundaryGap: false, data: dates, axisLine: { lineStyle: { color: "#d9d9d9" } } },
+        yAxis: { type: "value", minInterval: 1, splitLine: { lineStyle: { type: "dashed", color: "#e5e6eb" } } },
+        series: trend.map((item) => ({ name: item.name, type: "line", smooth: true, showSymbol: false, symbol: "circle", symbolSize: 7, emphasis: { focus: "series", scale: true, symbol: "circle", symbolSize: 9 }, data: item.data, lineStyle: { color: item.color, width: 2 }, itemStyle: { color: item.color } }))
+      })
+      this.outputTrendInstance.on("updateAxisPointer", (event) => {
+        const dataIndex = Number(event.axesInfo?.[0]?.value)
+        if (!Number.isInteger(dataIndex) || dataIndex < 0 || dataIndex >= dates.length) {
+          return
+        }
+        this.hoverOutputDetail = {
+          visible: true,
+          date: tooltipDates[dataIndex],
+          items: visibleCategories
+            .map((item) => ({ name: item.name, color: item.color, count: Number(item.daily[dataIndex] || 0) }))
+            .filter((item) => item.count > 0)
+        }
+      })
+      this.outputTrendInstance.on("globalout", () => {
+        this.hoverOutputDetail.visible = false
+      })
+    },
+
+    renderUploadCharts() {
+      if (!this.$refs.uploadPieChart || !this.$refs.uploadTrendChart) {
+        return
+      }
+      const dates = getAccessDateRange(this.uploadPeriod)
+      const tooltipDates = getAccessDateRange(this.uploadPeriod, new Date(), "full")
+      const visibleCategories = this.uploadCategories.filter((item) => item.count > 0)
+      visibleCategories.forEach((item, categoryIndex) => {
+        item.daily = Array.from({ length: dates.length }, (_, index) => Math.max(0, Math.round(3 + categoryIndex * 2 + Math.sin(index * 0.65 + categoryIndex) * 3 + (index % 3))))
+      })
+      const trend = buildAccessTrend(visibleCategories, dates)
+      this.uploadPieInstance?.dispose()
+      this.uploadTrendInstance?.dispose()
+      this.uploadPieInstance = echarts.init(this.$refs.uploadPieChart)
+      this.uploadTrendInstance = echarts.init(this.$refs.uploadTrendChart)
+      this.uploadPieInstance.setOption({
+        tooltip: { trigger: "item", formatter: "{b}<br/>上传数量：{c}<br/>占比：{d}%" },
+        series: [{ type: "pie", radius: ["58%", "78%"], center: ["50%", "50%"], label: { show: false }, data: visibleCategories.map((item) => ({ name: item.name, value: item.count, itemStyle: { color: item.color } })) }]
+      })
+      if (!this.expandedCards.upload) {
+        this.uploadTrendInstance?.dispose()
+        this.uploadTrendInstance = null
+        this.hoverUploadDetail.visible = false
+        return
+      }
+      this.uploadTrendInstance.setOption({
+        tooltip: { show: false },
+        axisPointer: { show: true, type: "line", snap: true, lineStyle: { color: "#c9cdd4", type: "dashed" } },
+        legend: { top: 0, right: 0, icon: "circle", textStyle: { color: "#4e5969" }, data: trend.map((item) => item.name) },
+        grid: { left: 42, right: 12, top: 34, bottom: 28 },
+        xAxis: { type: "category", boundaryGap: false, data: dates, axisLine: { lineStyle: { color: "#d9d9d9" } } },
+        yAxis: { type: "value", minInterval: 1, splitLine: { lineStyle: { type: "dashed", color: "#e5e6eb" } } },
+        series: trend.map((item) => ({ name: item.name, type: "line", smooth: true, showSymbol: false, symbol: "circle", symbolSize: 7, emphasis: { focus: "series", scale: true, symbol: "circle", symbolSize: 9 }, data: item.data, lineStyle: { color: item.color, width: 2 }, itemStyle: { color: item.color } }))
+      })
+      this.uploadTrendInstance.on("updateAxisPointer", (event) => {
+        const dataIndex = Number(event.axesInfo?.[0]?.value)
+        if (!Number.isInteger(dataIndex) || dataIndex < 0 || dataIndex >= dates.length) {
+          return
+        }
+        this.hoverUploadDetail = {
+          visible: true,
+          date: tooltipDates[dataIndex],
+          items: visibleCategories
+            .map((item) => ({ name: item.name, color: item.color, count: Number(item.daily[dataIndex] || 0) }))
+            .filter((item) => item.count > 0)
+        }
+      })
+      this.uploadTrendInstance.on("globalout", () => {
+        this.hoverUploadDetail.visible = false
+      })
     },
 
     async loadPools(showSuccess = false) {
@@ -726,9 +993,58 @@ export default {
     margin-top: 16px;
   }
 
-  .access-data-card {
+  .stats-cards-layout {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
     margin-bottom: 16px;
+  }
+
+  .access-data-card {
+    margin-bottom: 0;
     border-radius: 6px;
+    min-width: 0;
+    order: 1;
+
+    &.is-expanded {
+      grid-column: 1 / -1;
+      order: 2;
+    }
+
+    &:not(.is-expanded) {
+      .access-detail-list,
+      .access-trend-wrap {
+        display: none;
+      }
+
+      .access-data-content {
+        min-height: 170px;
+        justify-content: center;
+      }
+
+      .access-pie-chart {
+        flex-basis: 180px;
+        height: 165px;
+      }
+    }
+
+    .card-display-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .card-expand-button {
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      color: #86909c;
+    }
+
+    .card-expand-button:hover {
+      color: #165dff;
+      background: #e8f3ff;
+    }
 
     .access-data-title {
       font-weight: 600;
@@ -851,6 +1167,10 @@ export default {
   }
 
   @media (max-width: 1100px) {
+    .stats-cards-layout {
+      grid-template-columns: 1fr;
+    }
+
     .access-data-card .access-data-content {
       flex-wrap: wrap;
     }
