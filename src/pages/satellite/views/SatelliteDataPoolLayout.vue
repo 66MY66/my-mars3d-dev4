@@ -45,6 +45,38 @@
       </a-col>
     </a-row>
 
+    <a-card :bordered="false" class="access-data-card">
+      <template #title>
+        <span class="access-data-title">接入数据</span>
+      </template>
+      <template #extra>
+        <a-radio-group v-model:value="accessPeriod" size="small" button-style="solid" @change="handleAccessPeriodChange">
+          <a-radio-button value="month">月周期</a-radio-button>
+          <a-radio-button value="week">周周期</a-radio-button>
+        </a-radio-group>
+      </template>
+      <div class="access-data-content">
+        <div ref="accessPieChart" class="access-pie-chart" />
+        <div class="access-detail-list">
+          <div v-for="item in accessCategories" :key="item.name" class="access-detail-row">
+            <span class="access-detail-name"><i :style="{ backgroundColor: item.color }" />{{ item.name }}</span>
+            <span class="access-detail-count">{{ item.count }}</span>
+            <span class="access-detail-percent">{{ item.percent }}%</span>
+          </div>
+        </div>
+        <div class="access-trend-wrap">
+          <div ref="accessTrendChart" class="access-trend-chart" />
+          <div v-if="hoverAccessDetail.visible" class="access-hover-detail">
+            <div class="access-hover-date">{{ hoverAccessDetail.date }}</div>
+            <div v-for="item in hoverAccessDetail.items" :key="item.name" class="access-hover-row">
+              <span class="access-hover-name"><i :style="{ backgroundColor: item.color }" />{{ item.name }}</span>
+              <strong>{{ item.count }}</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+    </a-card>
+
     <!-- 资源池列表 -->
     <a-card :bordered="false" class="table-card">
       <template #title>
@@ -216,6 +248,8 @@ import { fromPool, toPoolPayload } from "../api/adapters"
 import { poolApi } from "../api/services"
 import { uploadArtifact, smartUploadArtifact } from "@mars/widgets/basic/dataset-repository/services/eoapi-artifacts"
 import { searchItems, createDataset, updateDatasetContent } from "@mars/widgets/basic/dataset-repository/services/eoapi-datasets"
+import * as echarts from "echarts"
+import { buildAccessTrend, getAccessDateRange } from "../utils/access-data"
 
 export default {
   name: "SatelliteDataPoolLayout",
@@ -232,6 +266,20 @@ export default {
       loading: false,
       confirmLoading: false,
       searchKeyword: "",
+      accessPeriod: "month",
+      accessPieInstance: null,
+      accessTrendInstance: null,
+      hoverAccessDetail: {
+        visible: false,
+        date: "",
+        items: []
+      },
+      accessCategories: [
+        { name: "地面站卫星原始数据", color: "#5B8FF9", count: 128, percent: 47, daily: [] },
+        { name: "气象数据", color: "#61DDAA", count: 76, percent: 28, daily: [] },
+        { name: "遥感产品数据", color: "#65789B", count: 42, percent: 15, daily: [] },
+        { name: "其他数据", color: "#F6BD16", count: 27, percent: 10, daily: [] }
+      ],
 
       // 统计数据
       statistics: {
@@ -308,6 +356,14 @@ export default {
   },
   mounted() {
     this.loadPools()
+    this.$nextTick(() => this.renderAccessCharts())
+    window.addEventListener("resize", this.resizeAccessCharts)
+  },
+  beforeUnmount() {
+    window.removeEventListener("resize", this.resizeAccessCharts)
+    this.accessPieInstance?.dispose()
+    this.accessTrendInstance?.dispose()
+    this.hoverAccessDetail.visible = false
   },
   computed: {
     filteredPoolList() {
@@ -322,6 +378,62 @@ export default {
     }
   },
   methods: {
+    handleAccessPeriodChange() {
+      this.renderAccessCharts()
+    },
+
+    renderAccessCharts() {
+      if (!this.$refs.accessPieChart || !this.$refs.accessTrendChart) {
+        return
+      }
+      const dates = getAccessDateRange(this.accessPeriod)
+      const length = dates.length
+      this.accessCategories.forEach((item, categoryIndex) => {
+        item.daily = Array.from({ length }, (_, index) => Math.max(0, Math.round(6 + categoryIndex * 3 + Math.sin(index * 0.8 + categoryIndex) * 4 + (index % 5))))
+      })
+      const visibleCategories = this.accessCategories.filter((item) => item.count > 0)
+      const trend = buildAccessTrend(visibleCategories, dates)
+      const tooltipDates = getAccessDateRange(this.accessPeriod, new Date(), "full")
+      this.accessPieInstance?.dispose()
+      this.accessTrendInstance?.dispose()
+      this.accessPieInstance = echarts.init(this.$refs.accessPieChart)
+      this.accessTrendInstance = echarts.init(this.$refs.accessTrendChart)
+      this.accessPieInstance.setOption({
+        tooltip: { trigger: "item", formatter: "{b}<br/>接入数量：{c}<br/>占比：{d}%" },
+        series: [{ type: "pie", radius: ["58%", "78%"], center: ["50%", "50%"], label: { show: false }, data: this.accessCategories.map((item) => ({ name: item.name, value: item.count, itemStyle: { color: item.color } })) }]
+      })
+      this.accessTrendInstance.setOption({
+        tooltip: { show: false },
+        axisPointer: { show: true, type: "line", snap: true, lineStyle: { color: "#c9cdd4", type: "dashed" } },
+        legend: { top: 0, right: 0, icon: "circle", textStyle: { color: "#4e5969" }, data: trend.map((item) => item.name) },
+        grid: { left: 42, right: 12, top: 34, bottom: 28 },
+        xAxis: { type: "category", boundaryGap: false, data: dates, axisLine: { lineStyle: { color: "#d9d9d9" } } },
+        yAxis: { type: "value", minInterval: 1, splitLine: { lineStyle: { type: "dashed", color: "#e5e6eb" } } },
+        series: trend.map((item) => ({ name: item.name, type: "line", smooth: true, showSymbol: false, symbol: "circle", symbolSize: 7, emphasis: { focus: "series", scale: true, symbol: "circle", symbolSize: 9 }, data: item.data, lineStyle: { color: item.color, width: 2 }, itemStyle: { color: item.color } }))
+      })
+      this.accessTrendInstance.on("updateAxisPointer", (event) => {
+        const dataIndex = Number(event.axesInfo?.[0]?.value)
+        if (!Number.isInteger(dataIndex) || dataIndex < 0 || dataIndex >= dates.length) {
+          return
+        }
+        this.hoverAccessDetail = {
+          visible: true,
+          date: tooltipDates[dataIndex],
+          items: visibleCategories
+            .map((item) => ({ name: item.name, color: item.color, count: Number(item.daily[dataIndex] || 0) }))
+            .filter((item) => item.count > 0)
+        }
+      })
+      this.accessTrendInstance.on("globalout", () => {
+        this.hoverAccessDetail.visible = false
+      })
+    },
+
+    resizeAccessCharts() {
+      this.accessPieInstance?.resize()
+      this.accessTrendInstance?.resize()
+    },
+
     async loadPools(showSuccess = false) {
       this.loading = true
       try {
@@ -612,6 +724,140 @@ export default {
 
   .table-card {
     margin-top: 16px;
+  }
+
+  .access-data-card {
+    margin-bottom: 16px;
+    border-radius: 6px;
+
+    .access-data-title {
+      font-weight: 600;
+      color: #1d2129;
+    }
+
+    .access-data-content {
+      display: flex;
+      align-items: center;
+      min-height: 220px;
+      gap: 20px;
+    }
+
+    .access-pie-chart {
+      flex: 0 0 220px;
+      height: 210px;
+    }
+
+    .access-detail-list {
+      flex: 0 0 250px;
+      border-left: 1px solid #f0f0f0;
+      padding-left: 20px;
+    }
+
+    .access-detail-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 62px 52px;
+      gap: 8px;
+      align-items: center;
+      min-height: 38px;
+      color: #4e5969;
+      font-size: 13px;
+    }
+
+    .access-detail-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+
+      i {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin-right: 8px;
+        border-radius: 50%;
+      }
+    }
+
+    .access-detail-count {
+      color: #1d2129;
+      text-align: right;
+    }
+
+    .access-detail-percent {
+      color: #86909c;
+      text-align: right;
+    }
+
+    .access-trend-wrap {
+      flex: 1 1 auto;
+      min-width: 0;
+      height: 230px;
+      position: relative;
+    }
+
+    .access-trend-chart {
+      width: 100%;
+      height: 100%;
+    }
+
+    .access-hover-detail {
+      position: absolute;
+      top: 42px;
+      left: 50%;
+      min-width: 210px;
+      padding: 10px 12px;
+      border: 1px solid #e5e6eb;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.98);
+      box-shadow: 0 6px 18px rgba(31, 35, 41, 0.14);
+      color: #4e5969;
+      pointer-events: none;
+      transform: translateX(-50%);
+      z-index: 3;
+    }
+
+    .access-hover-date {
+      margin-bottom: 6px;
+      color: #1d2129;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .access-hover-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      min-height: 24px;
+      font-size: 12px;
+    }
+
+    .access-hover-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+
+      i {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin-right: 6px;
+        border-radius: 50%;
+      }
+    }
+
+    .access-hover-row strong {
+      color: #1d2129;
+    }
+  }
+
+  @media (max-width: 1100px) {
+    .access-data-card .access-data-content {
+      flex-wrap: wrap;
+    }
+
+    .access-data-card .access-trend-wrap {
+      flex-basis: 100%;
+    }
   }
 }
 </style>
