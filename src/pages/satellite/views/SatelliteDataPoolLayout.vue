@@ -56,6 +56,9 @@
             <FullscreenExitOutlined v-if="expandedCards.access" />
             <FullscreenOutlined v-else />
           </a-button>
+          <a-button v-if="expandedCards.access" type="link" size="small" class="data-list-toggle" @click="toggleDataList('access')">
+            数据列表
+          </a-button>
           <a-radio-group v-model:value="accessPeriod" size="small" button-style="solid" @change="handleAccessPeriodChange">
           <a-radio-button value="month">月周期</a-radio-button>
           <a-radio-button value="week">周周期</a-radio-button>
@@ -82,6 +85,27 @@
           </div>
         </div>
       </div>
+      <div v-if="expandedCards.access && dataListVisible.access" class="card-data-list">
+        <div class="data-list-toolbar">
+          <a-input-search v-model:value="dataListFilters.access.keyword" placeholder="搜索数据名称、来源" allow-clear style="width: 220px" @search="resetDataListPagination('access')" />
+          <a-range-picker v-model:value="dataListFilters.access.dateRange" value-format="YYYY-MM-DD" :disabled-date="(date) => isDateDisabled('access', date)" @change="resetDataListPagination('access')" />
+          <a-select v-model:value="dataListFilters.access.format" allow-clear placeholder="数据格式" style="width: 140px" @change="resetDataListPagination('access')">
+            <a-select-option v-for="format in dataListFormats.access" :key="format" :value="format">{{ format }}</a-select-option>
+          </a-select>
+        </div>
+        <a-table
+          size="small"
+          :columns="dataListColumns.access"
+          :data-source="filteredDataList.access"
+          :pagination="dataListPagination.access"
+          row-key="id"
+          @change="(pagination) => handleDataListChange('access', pagination)"
+        >
+          <template #bodyCell="{ column, record }">
+            <a v-if="column.key === 'operation'" @click="showDataDetail('access', record)">查看详情</a>
+          </template>
+        </a-table>
+      </div>
     </a-card>
 
     <!-- 资源池列表 -->
@@ -94,6 +118,9 @@
           <a-button type="text" class="card-expand-button" @click="toggleCard('output')">
             <FullscreenExitOutlined v-if="expandedCards.output" />
             <FullscreenOutlined v-else />
+          </a-button>
+          <a-button v-if="expandedCards.output" type="link" size="small" class="data-list-toggle" @click="toggleDataList('output')">
+            数据列表
           </a-button>
           <a-radio-group v-model:value="outputPeriod" size="small" button-style="solid" @change="handleOutputPeriodChange">
           <a-radio-button value="month">月周期</a-radio-button>
@@ -121,6 +148,27 @@
           </div>
         </div>
       </div>
+      <div v-if="expandedCards.output && dataListVisible.output" class="card-data-list">
+        <div class="data-list-toolbar">
+          <a-input-search v-model:value="dataListFilters.output.keyword" placeholder="搜索数据名称、模块" allow-clear style="width: 220px" @search="resetDataListPagination('output')" />
+          <a-range-picker v-model:value="dataListFilters.output.dateRange" value-format="YYYY-MM-DD" :disabled-date="(date) => isDateDisabled('output', date)" @change="resetDataListPagination('output')" />
+          <a-select v-model:value="dataListFilters.output.format" allow-clear placeholder="数据格式" style="width: 140px" @change="resetDataListPagination('output')">
+            <a-select-option v-for="format in dataListFormats.output" :key="format" :value="format">{{ format }}</a-select-option>
+          </a-select>
+        </div>
+        <a-table
+          size="small"
+          :columns="dataListColumns.output"
+          :data-source="filteredDataList.output"
+          :pagination="dataListPagination.output"
+          row-key="id"
+          @change="(pagination) => handleDataListChange('output', pagination)"
+        >
+          <template #bodyCell="{ column, record }">
+            <a v-if="column.key === 'operation'" @click="showDataDetail('output', record)">查看详情</a>
+          </template>
+        </a-table>
+      </div>
     </a-card>
 
     <a-card :bordered="false" :class="['access-data-card', 'output-data-card', { 'is-expanded': expandedCards.upload }]">
@@ -132,6 +180,9 @@
           <a-button type="text" class="card-expand-button" @click="toggleCard('upload')">
             <FullscreenExitOutlined v-if="expandedCards.upload" />
             <FullscreenOutlined v-else />
+          </a-button>
+          <a-button v-if="expandedCards.upload" type="link" size="small" class="data-list-toggle" @click="toggleDataList('upload')">
+            数据列表
           </a-button>
           <a-radio-group v-model:value="uploadPeriod" size="small" button-style="solid" @change="handleUploadPeriodChange">
           <a-radio-button value="month">月周期</a-radio-button>
@@ -158,6 +209,27 @@
             </div>
           </div>
         </div>
+      </div>
+      <div v-if="expandedCards.upload && dataListVisible.upload" class="card-data-list">
+        <div class="data-list-toolbar">
+          <a-input-search v-model:value="dataListFilters.upload.keyword" placeholder="搜索数据名称、来源" allow-clear style="width: 220px" @search="resetDataListPagination('upload')" />
+          <a-range-picker v-model:value="dataListFilters.upload.dateRange" value-format="YYYY-MM-DD" :disabled-date="(date) => isDateDisabled('upload', date)" @change="resetDataListPagination('upload')" />
+          <a-select v-model:value="dataListFilters.upload.format" allow-clear placeholder="数据格式" style="width: 140px" @change="resetDataListPagination('upload')">
+            <a-select-option v-for="format in dataListFormats.upload" :key="format" :value="format">{{ format }}</a-select-option>
+          </a-select>
+        </div>
+        <a-table
+          size="small"
+          :columns="dataListColumns.upload"
+          :data-source="filteredDataList.upload"
+          :pagination="dataListPagination.upload"
+          row-key="id"
+          @change="(pagination) => handleDataListChange('upload', pagination)"
+        >
+          <template #bodyCell="{ column, record }">
+            <a v-if="column.key === 'operation'" @click="showDataDetail('upload', record)">查看详情</a>
+          </template>
+        </a-table>
       </div>
     </a-card>
     </div>
@@ -334,6 +406,7 @@ import { fromPool, toPoolPayload } from "../api/adapters"
 import { poolApi } from "../api/services"
 import { uploadArtifact, smartUploadArtifact } from "@mars/widgets/basic/dataset-repository/services/eoapi-artifacts"
 import { searchItems, createDataset, updateDatasetContent } from "@mars/widgets/basic/dataset-repository/services/eoapi-datasets"
+import dayjs from "dayjs"
 import * as echarts from "echarts"
 import { buildAccessTrend, getAccessDateRange } from "../utils/access-data"
 
@@ -364,6 +437,87 @@ export default {
         access: false,
         output: false,
         upload: false
+      },
+      dataListVisible: {
+        access: false,
+        output: false,
+        upload: false
+      },
+      dataListColumns: {
+        access: [
+          { title: "数据名称", dataIndex: "name", key: "name", ellipsis: true },
+          { title: "数据来源", dataIndex: "source", key: "source" },
+          { title: "接入时间", dataIndex: "time", key: "time" },
+          { title: "数据格式", dataIndex: "format", key: "format" },
+          { title: "接入状态", dataIndex: "status", key: "status" },
+          { title: "操作", key: "operation", width: 90 }
+        ],
+        output: [
+          { title: "产出的数据名称", dataIndex: "name", key: "name", ellipsis: true },
+          { title: "产出的子系统模块", dataIndex: "module", key: "module" },
+          { title: "产出时间", dataIndex: "time", key: "time" },
+          { title: "数据内容", dataIndex: "content", key: "content", ellipsis: true },
+          { title: "是否发送成功", dataIndex: "sent", key: "sent" },
+          { title: "操作", key: "operation", width: 90 }
+        ],
+        upload: [
+          { title: "数据名称", dataIndex: "name", key: "name", ellipsis: true },
+          { title: "上传来源", dataIndex: "source", key: "source" },
+          { title: "上传时间", dataIndex: "time", key: "time" },
+          { title: "文件大小", dataIndex: "size", key: "size" },
+          { title: "上传状态", dataIndex: "status", key: "status" },
+          { title: "操作", key: "operation", width: 90 }
+        ]
+      },
+      dataListFilters: {
+        access: { keyword: "", dateRange: null, format: undefined },
+        output: { keyword: "", dateRange: null, format: undefined },
+        upload: { keyword: "", dateRange: null, format: undefined }
+      },
+      dataListFormats: {
+        access: ["GeoTIFF", "JSON", "NetCDF"],
+        output: ["GeoTIFF", "JSON", "PDF"],
+        upload: ["GeoTIFF", "JSON", "PDF"]
+      },
+      dataListPagination: {
+        access: { current: 1, pageSize: 5, total: 0, showSizeChanger: true, pageSizeOptions: ["5", "10", "20"], showTotal: (total) => `共 ${total} 条数据` },
+        output: { current: 1, pageSize: 5, total: 0, showSizeChanger: true, pageSizeOptions: ["5", "10", "20"], showTotal: (total) => `共 ${total} 条数据` },
+        upload: { current: 1, pageSize: 5, total: 0, showSizeChanger: true, pageSizeOptions: ["5", "10", "20"], showTotal: (total) => `共 ${total} 条数据` }
+      },
+      dataListRecords: {
+        access: {
+          month: [
+            { id: "access-m-1", name: "地面站卫星原始数据", source: "地面站", time: "2026-11-23 09:30", format: "GeoTIFF", status: "已接入" },
+            { id: "access-m-2", name: "气象观测数据", source: "气象数据服务", time: "2026-11-22 16:10", format: "JSON", status: "已接入" },
+            { id: "access-m-3", name: "遥感产品数据", source: "遥感产品目录", time: "2026-11-20 11:45", format: "NetCDF", status: "已接入" }
+          ],
+          week: [
+            { id: "access-w-1", name: "地面站卫星原始数据", source: "地面站", time: "2026-11-23 09:30", format: "GeoTIFF", status: "已接入" },
+            { id: "access-w-2", name: "应急观测数据", source: "应急数据服务", time: "2026-11-21 14:20", format: "JSON", status: "处理中" }
+          ]
+        },
+        output: {
+          month: [
+            { id: "output-m-1", name: "卫星遥感标准数据", module: "标准产品模块", time: "2026-11-23 10:05", content: "标准化遥感影像", format: "GeoTIFF", sent: "是" },
+            { id: "output-m-2", name: "风险监测成果", module: "风险监测模块", time: "2026-11-22 18:40", content: "风险指数栅格", format: "GeoTIFF", sent: "是" },
+            { id: "output-m-3", name: "评估报告", module: "综合评估模块", time: "2026-11-19 15:12", content: "评估报告文档", format: "PDF", sent: "否" }
+          ],
+          week: [
+            { id: "output-w-1", name: "卫星遥感标准数据", module: "标准产品模块", time: "2026-11-23 10:05", content: "标准化遥感影像", format: "GeoTIFF", sent: "是" },
+            { id: "output-w-2", name: "异常监测成果", module: "异常监测模块", time: "2026-11-21 09:18", content: "异常点位数据", format: "JSON", sent: "是" }
+          ]
+        },
+        upload: {
+          month: [
+            { id: "upload-m-1", name: "卫星遥感标准数据", source: "标准产品模块", time: "2026-11-23 10:20", size: "128 MB", format: "GeoTIFF", status: "上传成功" },
+            { id: "upload-m-2", name: "评估报告", source: "综合评估模块", time: "2026-11-22 17:05", size: "8 MB", format: "PDF", status: "上传成功" },
+            { id: "upload-m-3", name: "风险监测成果", source: "风险监测模块", time: "2026-11-20 13:50", size: "64 MB", format: "JSON", status: "上传失败" }
+          ],
+          week: [
+            { id: "upload-w-1", name: "卫星遥感标准数据", source: "标准产品模块", time: "2026-11-23 10:20", size: "128 MB", format: "GeoTIFF", status: "上传成功" },
+            { id: "upload-w-2", name: "异常监测成果", source: "异常监测模块", time: "2026-11-21 09:30", size: "32 MB", format: "JSON", status: "上传成功" }
+          ]
+        }
       },
       uploadPeriod: "month",
       uploadPieInstance: null,
@@ -495,6 +649,31 @@ export default {
     this.hoverUploadDetail.visible = false
   },
   computed: {
+    currentDataList() {
+      return {
+        access: this.dataListRecords.access[this.accessPeriod] || [],
+        output: this.dataListRecords.output[this.outputPeriod] || [],
+        upload: this.dataListRecords.upload[this.uploadPeriod] || []
+      }
+    },
+    filteredDataList() {
+      const result = {}
+      for (const cardKey of ["access", "output", "upload"]) {
+        const filters = this.dataListFilters[cardKey]
+        const [start, end] = filters.dateRange || []
+        const keyword = String(filters.keyword || "").trim().toLowerCase()
+        result[cardKey] = this.currentDataList[cardKey].filter((record) => {
+          const searchable = Object.values(record).join(" ").toLowerCase()
+          if (keyword && !searchable.includes(keyword)) { return false }
+          if (filters.format && record.format !== filters.format) { return false }
+          const recordDate = dayjs(record.time)
+          if (start && recordDate.isBefore(dayjs(start), "day")) { return false }
+          if (end && recordDate.isAfter(dayjs(end), "day")) { return false }
+          return true
+        })
+      }
+      return result
+    },
     filteredPoolList() {
       if (!this.searchKeyword) {
         return this.poolList
@@ -506,9 +685,23 @@ export default {
       )
     }
   },
+  watch: {
+    filteredDataList: {
+      deep: true,
+      immediate: true,
+      handler(value) {
+        for (const cardKey of ["access", "output", "upload"]) {
+          this.dataListPagination[cardKey].total = value[cardKey].length
+        }
+      }
+    }
+  },
   methods: {
     toggleCard(cardKey) {
       this.expandedCards[cardKey] = !this.expandedCards[cardKey]
+      if (!this.expandedCards[cardKey]) {
+        this.dataListVisible[cardKey] = false
+      }
       this.$nextTick(() => {
         if (cardKey === "access") {
           this.renderAccessCharts()
@@ -524,15 +717,65 @@ export default {
     },
 
     handleAccessPeriodChange() {
+      this.resetDataListPagination("access")
       this.renderAccessCharts()
     },
 
     handleOutputPeriodChange() {
+      this.resetDataListPagination("output")
       this.renderOutputCharts()
     },
 
     handleUploadPeriodChange() {
+      this.resetDataListPagination("upload")
       this.renderUploadCharts()
+    },
+
+    toggleDataList(cardKey) {
+      this.dataListVisible[cardKey] = !this.dataListVisible[cardKey]
+      this.syncDataListPagination(cardKey)
+    },
+
+    resetDataListPagination(cardKey) {
+      this.dataListPagination[cardKey].current = 1
+      this.syncDataListPagination(cardKey)
+    },
+
+    syncDataListPagination(cardKey) {
+      this.dataListPagination[cardKey].total = this.currentDataList[cardKey].length
+    },
+
+    handleDataListChange(cardKey, pagination) {
+      this.dataListPagination[cardKey].current = pagination.current
+      this.dataListPagination[cardKey].pageSize = pagination.pageSize
+    },
+
+    isDateDisabled(cardKey, date) {
+      let period = this.uploadPeriod
+      if (cardKey === "access") { period = this.accessPeriod }
+      if (cardKey === "output") { period = this.outputPeriod }
+      const days = period === "month" ? 29 : 6
+      const start = dayjs().startOf("day").subtract(days, "day")
+      const end = dayjs().endOf("day")
+      return date.isBefore(start, "day") || date.isAfter(end, "day")
+    },
+
+    showDataDetail(cardKey, record) {
+      const labels = {
+        access: "接入数据详情",
+        output: "产出数据详情",
+        upload: "数据上传详情"
+      }
+      const fields = Object.entries(record).filter(([key]) => key !== "id")
+      Modal.info({
+        title: labels[cardKey],
+        width: 460,
+        /*
+        content: () => h("div", { class: "data-detail-modal" }, fields.map(([key, value]) => h("p", [h("strong", `${key}：`), String(value ?? "-\")])))
+      })
+        */
+        content: () => h("div", { class: "data-detail-modal" }, fields.map(([key, value]) => h("p", [h("strong", String(key) + ": "), String(value ?? "-")])))
+      })
     },
 
     renderAccessCharts() {
@@ -1046,6 +1289,16 @@ export default {
       background: #e8f3ff;
     }
 
+    .data-list-toggle {
+      height: 28px;
+      padding: 0 4px;
+      color: #165dff;
+    }
+
+    .data-list-toggle:hover {
+      color: #0e42d2;
+    }
+
     .access-data-title {
       font-weight: 600;
       color: #1d2129;
@@ -1163,6 +1416,23 @@ export default {
 
     .access-hover-row strong {
       color: #1d2129;
+    }
+
+    .card-data-list {
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid #f0f0f0;
+
+      .data-list-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 12px;
+      }
+
+      :deep(.ant-table-wrapper) {
+        width: 100%;
+      }
     }
   }
 
