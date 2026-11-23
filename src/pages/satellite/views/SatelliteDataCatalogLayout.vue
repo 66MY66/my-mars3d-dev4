@@ -91,20 +91,21 @@
           </a-descriptions>
 
           <!-- 关联的元数据列表 -->
-          <div style="margin-top: 20px">
+          <div class="metadata-section">
             <div style="margin-bottom: 16px; display: flex; justify-content: space-between">
               <h3>📄 关联元数据列表</h3>
               <a-button size="small" type="primary" @click="showAssociateDialog">添加关联</a-button>
             </div>
 
-            <a-table
-              :columns="metadataColumns"
-              :data-source="associatedMetadata"
-              :pagination="paginationConfig"
-              :loading="loading"
-              row-key="metadataId"
-              size="small"
-            >
+            <div class="metadata-table-scroll">
+              <a-table
+                :columns="metadataColumns"
+                :data-source="associatedMetadata"
+                :pagination="paginationConfig"
+                :loading="loading"
+                row-key="metadataId"
+                size="small"
+              >
               <template #bodyCell="{ column, record }">
                 <template v-if="column.key === 'satellite'">
                   <a-tag>{{ record.satellite }}</a-tag>
@@ -120,7 +121,8 @@
                   <a style="color: #f5222d" @click="removeAssociation(record)">解除关联</a>
                 </template>
               </template>
-            </a-table>
+              </a-table>
+            </div>
           </div>
         </a-card>
 
@@ -309,7 +311,7 @@ export default {
           this.currentCatalog = this.catalogTree[0]
           this.selectedKeys = [this.currentCatalog.key]
         }
-        this.loadAssociatedMetadata()
+        await this.loadAssociatedMetadata(this.currentCatalog?.key)
         if (showSuccess) { message.success("数据已刷新") }
       } catch (error) {
         message.error(error instanceof Error ? error.message : "目录数据加载失败")
@@ -355,9 +357,25 @@ export default {
       }
     },
 
-    loadAssociatedMetadata() {
+    async loadAssociatedMetadata(catalogId = this.currentCatalog?.key) {
       this.associatedMetadata = []
       this.paginationConfig.total = 0
+      if (!catalogId) {
+        return
+      }
+      this.loading = true
+      try {
+        const page = await metadataApi.list({ collectionId: catalogId, pageNo: 1, pageSize: 1000 })
+        this.associatedMetadata = page.records
+        this.paginationConfig.total = page.total
+        if (this.currentCatalog && this.currentCatalog.key === catalogId) {
+          this.currentCatalog.count = page.total
+        }
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : "关联元数据加载失败")
+      } finally {
+        this.loading = false
+      }
     },
 
     showCreateDialog() {
@@ -477,9 +495,8 @@ export default {
   }
 }
 .catalog-main-row {
-  height: 420px;
-  max-height: 420px;
-  min-height: 420px;
+  flex: 1 1 auto;
+  min-height: 0;
   align-items: stretch;
 
   > .ant-col {
@@ -500,11 +517,10 @@ export default {
 
   :deep(.ant-card-body) {
     min-height: 0;
-    height: calc(100% - 57px);
-    flex: 0 0 calc(100% - 57px);
+    flex: 1 1 auto;
     display: flex;
     flex-direction: column;
-    overflow-y: auto;
+    overflow: hidden;
     overflow-x: hidden;
   }
 
@@ -521,5 +537,47 @@ export default {
   overflow-y: auto;
   overflow-x: hidden;
   padding-right: 4px;
+}
+
+.catalog-panel-card {
+  :deep(.ant-card-body) {
+    gap: 16px;
+  }
+
+  :deep(.ant-descriptions) {
+    flex: 0 0 auto;
+  }
+}
+
+.metadata-section {
+  min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  margin-top: 0;
+}
+
+.metadata-section > div:first-child {
+  flex: 0 0 auto;
+}
+
+.metadata-table-scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.satellite-catalog-page {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.satellite-catalog-page > .content-header,
+.satellite-catalog-page > .ant-row:not(.catalog-main-row) {
+  flex: 0 0 auto;
 }
 </style>
