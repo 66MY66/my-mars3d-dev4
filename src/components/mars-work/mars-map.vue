@@ -118,11 +118,7 @@
 
             <div v-if="!statsUi.collapsed[c.key]" class="card-body">
               <div v-if="c.key === 'population'" class="population-view-switch">
-                <a-radio-group v-model:value="populationChartMode" size="small" optionType="button" buttonStyle="solid" @change="handlePopulationChartModeChange">
-                  <a-radio-button value="density">密度分布</a-radio-button>
-                  <a-radio-button value="profile">纬向剖面</a-radio-button>
-                </a-radio-group>
-                <span v-if="populationChartMode === 'profile'" class="population-profile-caption">当前纬度 {{ populationProfileLatitudeText }}</span>
+                <span class="population-profile-caption">纬向剖面 · 当前纬度 {{ populationProfileLatitudeText }}</span>
               </div>
 
               <div v-if="c.hasLevel" class="card-level">
@@ -137,11 +133,11 @@
                   'is-loading': getCardState(c.key).loading,
                   'is-empty': getCardState(c.key).empty,
                   'is-error': !!getCardState(c.key).error,
-                  'population-profile': c.key === 'population' && populationChartMode === 'profile'
+                  'population-profile': c.key === 'population'
                 }"
                 @wheel.prevent="adjustCardLevel(c.key, $event)"
               >
-                <div v-if="c.key === 'population' && populationChartMode === 'profile'" class="population-latitude-control">
+                <div v-if="c.key === 'population'" class="population-latitude-control">
                   <span>{{ populationLatitudeBounds.max.toFixed(3) }}°N</span>
                   <input
                     v-model.number="populationLatitude"
@@ -353,6 +349,7 @@ import {
 import { getIdentifyFocusAction } from "@/utils/identify-focus"
 import { installGdpDensityIdentify } from "@/utils/gdp-density-identify"
 import { installFacebookPopulationIdentify } from "@/utils/facebook-population-identify"
+import { populationVisualRgb } from "@/utils/population-cell-color"
 import GdpDensityLegend from "./GdpDensityLegend.vue"
 import FacebookPopulationLegend from "./FacebookPopulationLegend.vue"
 import StatsChartFrame from "./StatsChartFrame.vue"
@@ -723,6 +720,11 @@ let populationColorBlocksPrimitive: any = null
 let populationCameraHandler: (() => void) | null = null
 let populationRenderRun = 0
 let populationRefreshTimer: number | null = null
+const populationHiddenDrawGraphics: Array<{ graphic: any; show: boolean }> = []
+const populationStatsImageryLayers: any[] = []
+let populationStatsIdentifyCleanup: (() => void) | null = null
+let populationCellPrimitive: any = null
+let populationSourceLayerVisibility: { layer: any; show: boolean } | null = null
 
 const orderedStatsCards = computed(() => {
   const byKey = new Map(statsCards.map((c) => [c.key, c]))
@@ -787,7 +789,6 @@ const identifyPanelPos = reactive<{ left: number | null; top: number | null; wid
 })
 const activeRing = ref<RingLonLat>([])
 const populationGridStep = 0.005
-const populationChartMode = ref<"density" | "profile">("density")
 const populationLatitude = ref(0)
 const populationProfileRevision = ref(0)
 const populationLatitudeBounds = computed(() => {
@@ -1882,12 +1883,12 @@ function renderCard(key: StatsCardKey) {
       // #endregion
       return
     }
-    if (key === "population" && populationChartMode.value === "profile" && !populationProfile.value.points.some(Boolean)) {
+    if (key === "population" && !populationProfile.value.points.some(Boolean)) {
       chart.clear?.()
       updateCardState(key, { loading: false, empty: true, error: null })
       return
     }
-    const option = key === "population" && populationChartMode.value === "profile"
+    const option = key === "population"
       ? buildPopulationLatitudeProfileOption(populationProfile.value.latitude, populationProfile.value.points)
       : buildStatsChartOption(key, rows)
     // #region debug-point C:set-option-before
@@ -1944,13 +1945,8 @@ function closeStats() {
   clearGridStatsOnMap()
 }
 
-async function handlePopulationChartModeChange() {
-  await nextTick()
-  if (statsVisible.value) { renderCard("population") }
-}
-
 function handlePopulationLatitudeInput() {
-  if (statsVisible.value && populationChartMode.value === "profile") {
+  if (statsVisible.value) {
     renderCard("population")
   }
 }
@@ -2172,7 +2168,7 @@ function loadRealGridStatsCard(key: "population" | "economy", ringKey: string) {
   const controller = new AbortController()
   gridStatsControllers.set(key, controller)
   updateCardState(key, { loading: true, empty: false, error: null })
-  const dataset: GridDensityDataset = key === "population" ? "population" : "gdp"
+  const dataset: GridDensityDataset = "gdp"
   loadGridDensityStatistics(dataset, activeRing.value, controller.signal)
     .then((result) => {
       if (controller.signal.aborted || JSON.stringify(activeRing.value) !== ringKey) { return }
@@ -2183,7 +2179,9 @@ function loadRealGridStatsCard(key: "population" | "economy", ringKey: string) {
       if (key === "population") { populationProfileRevision.value++ }
       if (key === "population") { metrics.population = result.total }
       renderCard(key)
-      if (statsOnMapUi[key]) { renderGridStatsOnMap(key) }
+      if (statsOnMapUi[key]) {
+        if (key === "population") { renderPopulationStatsImagery(result.selectedCells as any) } else { renderGridStatsOnMap(key) }
+      }
     })
     .catch((error: any) => {
       if (error?.name === "AbortError" || controller.signal.aborted) { return }
@@ -2202,6 +2200,90 @@ function clearGridStatsOnMap() {
     try { map.scene.primitives.remove(gridStatsOverlayPrimitive) } catch {}
   }
   gridStatsOverlayPrimitive = null
+  if (map && populationCellPrimitive) {
+    try { map.scene.primitives.remove(populationCellPrimitive) } catch {}
+  }
+  populationCellPrimitive = null
+  clearPopulationStatsImagery()
+  populationStatsIdentifyCleanup?.()
+  populationStatsIdentifyCleanup = null
+  restorePopulationSourceLayer()
+  restorePopulationDrawGraphics()
+}
+
+function hidePopulationSourceLayer() {
+  const layer = map?.getLayerById?.(412002)
+  if (!layer || populationSourceLayerVisibility) { return }
+  populationSourceLayerVisibility = { layer, show: layer.show !== false }
+  layer.show = false
+}
+
+function restorePopulationSourceLayer() {
+  if (!populationSourceLayerVisibility) { return }
+  const { layer, show } = populationSourceLayerVisibility
+  try { layer.show = show } catch {}
+  populationSourceLayerVisibility = null
+}
+
+function clearPopulationStatsImagery() {
+  const imageryLayers = (map?.viewer as any)?.imageryLayers
+  populationStatsImageryLayers.splice(0).forEach((layer) => {
+    try { imageryLayers?.remove(layer, true) } catch {}
+  })
+}
+
+function installPopulationStatsIdentify(cells: Array<{ west: number; south: number; east: number; north: number; value: number; total: number }>) {
+  if (!map || populationStatsIdentifyCleanup) { return }
+  const handleClick = (event: any) => {
+    if (!statsOnMapUi.population || !event?.cartesian) { return }
+    let point: any
+    try { point = mars3d.LngLatPoint.fromCartesian(event.cartesian) } catch { return }
+    const cell = cells.find((item) => point.lng >= item.west && point.lng <= item.east && point.lat >= item.south && point.lat <= item.north)
+    if (!cell) { return }
+    map.openPopup?.([point.lng, point.lat], `经度：${point.lng.toFixed(5)}°E<br/>纬度：${point.lat.toFixed(5)}°N<br/>人口密度：${Number(cell.value).toLocaleString()} 人/km²<br/>格网人口：${Math.round(Number(cell.total)).toLocaleString()} 人`)
+  }
+  map.on(mars3d.EventType.click, handleClick)
+  populationStatsIdentifyCleanup = () => map.off(mars3d.EventType.click, handleClick)
+}
+
+function renderPopulationStatsImagery(cells: Array<{ row: number; column: number; west: number; south: number; east: number; north: number; value: number; total: number }>) {
+  const Cesium = (mars3d as any).Cesium
+  if (!map || !Cesium || !cells.length) { return }
+  if (populationCellPrimitive) { try { map.scene.primitives.remove(populationCellPrimitive) } catch {} }
+  const instances = cells.map((cell) => {
+    const [red, green, blue] = populationVisualRgb(Number(cell.value))
+    return new Cesium.GeometryInstance({
+      geometry: new Cesium.RectangleGeometry({
+        rectangle: Cesium.Rectangle.fromDegrees(cell.west, cell.south, cell.east, cell.north),
+        vertexFormat: Cesium.PerInstanceColorAppearance.VERTEX_FORMAT
+      }),
+      attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(Cesium.Color.fromBytes(red, green, blue, 255)) }
+    })
+  })
+  populationCellPrimitive = map.scene.primitives.add(new Cesium.GroundPrimitive({
+    geometryInstances: instances,
+    appearance: new Cesium.PerInstanceColorAppearance({ flat: true, translucent: false }),
+    asynchronous: true
+  }))
+  hidePopulationDrawGraphics()
+  installPopulationStatsIdentify(cells)
+  map.scene.requestRender?.()
+}
+
+function hidePopulationDrawGraphics() {
+  const graphics = map?.graphicLayer?.getGraphics?.() || []
+  graphics.forEach((graphic: any) => {
+    const isDrawnArea = graphic?.attr?.drawShape === true || (graphic?.attr?.measure === true && graphic?.attr?.parentId)
+    if (!isDrawnArea || populationHiddenDrawGraphics.some((item) => item.graphic === graphic)) { return }
+    populationHiddenDrawGraphics.push({ graphic, show: graphic.show !== false })
+    graphic.show = false
+  })
+}
+
+function restorePopulationDrawGraphics() {
+  populationHiddenDrawGraphics.splice(0).forEach(({ graphic, show }) => {
+    try { graphic.show = show } catch {}
+  })
 }
 
 function gridCellColor(dataset: GridDensityDataset, value: number) {
@@ -2219,8 +2301,12 @@ function renderGridStatsOnMap(key: "population" | "economy") {
   const result = gridStatsResults.get(key)
   if (!result?.selectedCells.length) { return }
   clearGridStatsOnMap()
+  if (key === "population") {
+    renderPopulationStatsImagery(result.selectedCells as any)
+    return
+  }
   const Cesium = (mars3d as any).Cesium
-  const dataset: GridDensityDataset = key === "population" ? "population" : "gdp"
+  const dataset: GridDensityDataset = "gdp"
   const instances = result.selectedCells.map((cell) => {
     const [red, green, blue] = gridCellColor(dataset, cell.value)
     return new Cesium.GeometryInstance({
@@ -2265,7 +2351,10 @@ function toggleStatsOnMapUi(key: StatsCardKey) {
     statsOnMapUi[key] = true
     const ringKey = JSON.stringify(activeRing.value)
     if (gridStatsLoadedRing.get(key) === ringKey && gridStatsResults.has(key)) {
-      renderGridStatsOnMap(key)
+      if (key === "population") {
+        const result = gridStatsResults.get(key)
+        if (result?.selectedCells?.length) { renderPopulationStatsImagery(result.selectedCells as any) }
+      } else { renderGridStatsOnMap(key) }
     } else {
       loadRealGridStatsCard(key, ringKey)
     }

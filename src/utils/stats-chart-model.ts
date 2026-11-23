@@ -100,6 +100,14 @@ function buildDensityHistogramOption(rows: StatsRow[], valueName: string, color:
 }
 
 export function buildPopulationLatitudeProfileOption(latitude: number | null, points: Array<PopulationProfilePoint | null>) {
+  const longitudes = points
+    .filter((point): point is PopulationProfilePoint => !!point && Number.isFinite(point.longitude))
+    .map((point) => point.longitude)
+  const longitudeMin = longitudes.length ? Math.min(...longitudes) : undefined
+  const longitudeMax = longitudes.length ? Math.max(...longitudes) : undefined
+  const longitudePadding = longitudeMin !== undefined && longitudeMax !== undefined
+    ? Math.max((longitudeMax - longitudeMin) * 0.05, 0.0005)
+    : undefined
   return {
     animation: false,
     tooltip: {
@@ -117,6 +125,9 @@ export function buildPopulationLatitudeProfileOption(latitude: number | null, po
       name: "经度",
       nameLocation: "middle",
       nameGap: 42,
+      ...(longitudeMin !== undefined && longitudePadding !== undefined
+        ? { min: longitudeMin - longitudePadding, max: (longitudeMax as number) + longitudePadding }
+        : {}),
       axisLabel: { formatter: (value: number) => `${Number(value).toFixed(2)}°E` }
     },
     yAxis: {

@@ -34,6 +34,16 @@ describe("statistics chart model", () => {
     ])
   })
 
+  it("bounds the profile longitude axis to the selected latitude cells", () => {
+    const option: any = buildPopulationLatitudeProfileOption(27.1025, [
+      { longitude: 101.0075, latitude: 27.1025, density: 100, population: 25 },
+      { longitude: 101.0125, latitude: 27.1025, density: 140, population: 35 }
+    ])
+
+    expect(option.xAxis.min).toBeCloseTo(101.007, 6)
+    expect(option.xAxis.max).toBeCloseTo(101.013, 6)
+  })
+
   it("renders population as a descending horizontal ranking", () => {
     const option: any = buildStatsChartOption("population", [
       { 区划: "乙区", 人口: 200, 人口密度: 80 },
