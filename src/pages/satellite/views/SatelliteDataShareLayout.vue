@@ -101,42 +101,6 @@
 
       <!-- 访问监控 -->
       <a-tab-pane key="monitor" tab="访问监控">
-        <!-- 统计信息 -->
-        <a-row v-if="false" :gutter="16" style="margin-bottom: 16px">
-          <a-col :span="6">
-            <a-card>
-              <a-statistic title="总访问次数" :value="accessStatistics.totalAccess">
-                <template #prefix>👁️</template>
-              </a-statistic>
-            </a-card>
-          </a-col>
-          <a-col :span="6">
-            <a-card>
-              <a-statistic title="成功访问" :value="accessStatistics.successAccess">
-                <template #prefix>✅</template>
-              </a-statistic>
-            </a-card>
-          </a-col>
-          <a-col :span="6">
-            <a-card>
-              <a-statistic
-                title="拒绝访问"
-                :value="accessStatistics.failedAccess"
-                :value-style="{ color: '#f5222d' }"
-              >
-                <template #prefix>❌</template>
-              </a-statistic>
-            </a-card>
-          </a-col>
-          <a-col :span="6">
-            <a-card>
-              <a-statistic title="平均响应时间" :value="accessStatistics.avgResponseTime" suffix="s">
-                <template #prefix>⏱️</template>
-              </a-statistic>
-            </a-card>
-          </a-col>
-        </a-row>
-
         <!-- 访问日志 -->
         <a-card :bordered="false">
           <template #title>
@@ -147,16 +111,21 @@
           </template>
 
           <a-form layout="inline" style="margin-bottom: 16px">
-            <a-form-item label="用户">
-              <a-input v-model:value="logFilter.userId" placeholder="用户ID" style="width: 150px" allow-clear />
+            <a-form-item>
+              <a-input-search v-model:value="logFilter.keyword" placeholder="搜索数据集名称或描述" allow-clear style="width: 220px" />
             </a-form-item>
-            <a-form-item label="数据ID">
-              <a-input v-model:value="logFilter.dataId" placeholder="数据ID" style="width: 180px" allow-clear />
+            <a-form-item>
+              <a-range-picker v-model:value="logFilter.dateRange" value-format="YYYY-MM-DD" />
             </a-form-item>
-            <a-form-item label="访问结果">
-              <a-select v-model:value="logFilter.result" placeholder="请选择" style="width: 120px" allow-clear>
-                <a-select-option value="success">成功</a-select-option>
-                <a-select-option value="failed">失败</a-select-option>
+            <a-form-item>
+              <a-select v-model:value="logFilter.format" placeholder="数据格式" style="width: 140px" allow-clear>
+                <a-select-option v-for="format in sharedToMeFormats" :key="format" :value="format">{{ format }}</a-select-option>
+              </a-select>
+            </a-form-item>
+            <a-form-item>
+              <a-select v-model:value="logFilter.status" placeholder="共享状态" style="width: 120px" allow-clear>
+                <a-select-option value="共享">共享</a-select-option>
+                <a-select-option value="私人">私人</a-select-option>
               </a-select>
             </a-form-item>
             <a-form-item>
@@ -167,23 +136,23 @@
 
           <a-table
             :columns="logColumns"
-            :data-source="accessLogs"
+            :data-source="filteredAccessLogs"
             :pagination="logPaginationConfig"
             :loading="loading"
-            row-key="time"
+            row-key="dataId"
             size="small"
           >
             <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'role'">
-                <a-tag size="small">{{ record.role }}</a-tag>
-              </template>
-              <template v-else-if="column.key === 'result'">
-                <a-tag :color="record.result === '成功' ? 'green' : 'red'" size="small">
-                  {{ record.result }}
+              <template v-if="column.key === 'status'">
+                <a-tag :color="record.status === '共享' ? 'green' : 'orange'" size="small">
+                  {{ record.status }}
                 </a-tag>
               </template>
-              <template v-else-if="column.key === 'responseTime'">
-                {{ record.responseTime }}ms
+              <template v-else-if="column.key === 'createdAt'">
+                {{ formatShareDate(record.createdAt) }}
+              </template>
+              <template v-else-if="column.key === 'operation'">
+                <a @click="viewShareDetail(record)">详情</a>
               </template>
             </template>
           </a-table>
@@ -233,7 +202,7 @@
 </template>
 
 <script>
-import { message, Modal, Statistic } from "ant-design-vue"
+import { message, Modal } from "ant-design-vue"
 import { useWidget } from "@mars/common/store/widget"
 import { nextTick } from "vue"
 import { useRouter } from "vue-router"
@@ -262,8 +231,7 @@ export default {
     FileTextOutlined,
     ShareAltOutlined,
     FolderOpenOutlined,
-    InboxOutlined,
-    AStatistic: Statistic
+    InboxOutlined
   },
   data() {
     return {
@@ -271,29 +239,21 @@ export default {
       confirmLoading: false,
       activeTab: "myshare",
 
-      // 访问监控
-      accessStatistics: {
-        totalAccess: 1245,
-        successAccess: 1198,
-        failedAccess: 47,
-        avgResponseTime: 1.8
-      },
       logFilter: {
-        userId: "",
-        dataId: "",
-        result: undefined
+        keyword: "",
+        dateRange: [],
+        format: undefined,
+        status: undefined
       },
       accessLogs: [],
       logColumns: [
-        { title: "访问时间", dataIndex: "time", key: "time", width: 180 },
-        { title: "用户ID", dataIndex: "userId", key: "userId", width: 120 },
-        { title: "用户名", dataIndex: "userName", key: "userName", width: 100 },
-        { title: "角色", dataIndex: "role", key: "role", width: 100 },
-        { title: "数据ID", dataIndex: "dataId", key: "dataId", width: 180 },
-        { title: "操作", dataIndex: "action", key: "action", width: 80 },
-        { title: "访问结果", dataIndex: "result", key: "result", width: 100 },
-        { title: "响应时间", dataIndex: "responseTime", key: "responseTime", width: 100 },
-        { title: "IP地址", dataIndex: "ip", key: "ip", width: 140 }
+        { title: "数据集名称", dataIndex: "dataName", key: "dataName", ellipsis: true },
+        { title: "内容描述", dataIndex: "description", key: "description", ellipsis: true },
+        { title: "共享状态", dataIndex: "status", key: "status", width: 100 },
+        { title: "共享次数", dataIndex: "shareCount", key: "shareCount", width: 100 },
+        { title: "下载次数", dataIndex: "downloadCount", key: "downloadCount", width: 100 },
+        { title: "最近活动时间", dataIndex: "createdAt", key: "createdAt", width: 180 },
+        { title: "操作", key: "operation", width: 90 }
       ],
       logPaginationConfig: {
         current: 1,
@@ -366,13 +326,25 @@ export default {
         const formatMatch = !this.sharedToMeFilters.format || item.format === this.sharedToMeFilters.format
         return textMatch && dateMatch && formatMatch
       })
+    },
+    filteredAccessLogs() {
+      const keyword = String(this.logFilter.keyword || "").trim().toLowerCase()
+      const [start, end] = this.logFilter.dateRange || []
+      return this.accessLogs.filter((item) => {
+        const textMatch = !keyword || `${item.dataName || ""} ${item.description || ""}`.toLowerCase().includes(keyword)
+        const date = item.createdAt ? new Date(item.createdAt).toISOString().slice(0, 10) : ""
+        const dateMatch = (!start || date >= start) && (!end || date <= end)
+        const formatMatch = !this.logFilter.format || item.format === this.logFilter.format
+        const statusMatch = !this.logFilter.status || item.status === this.logFilter.status
+        return textMatch && dateMatch && formatMatch && statusMatch
+      })
     }
   },
   methods: {
     async loadSharedToMeData() {
       try {
         const page = await shareApi.list({ pageNo: 1, pageSize: 200 })
-        this.sharedToMeData = page.records.map((record) => ({ ...record, status: record.shareType === "公开" ? "共享" : "私人" }))
+        this.sharedToMeData = page.records.map((record) => ({ ...record, status: record.shareType === "共享" ? "共享" : "私人" }))
       } catch (error) {
         message.error(error instanceof Error ? error.message : "共享给我的数据加载失败")
       }
@@ -380,7 +352,12 @@ export default {
     async loadMySharedData() {
       try {
         const page = await shareApi.list({ pageNo: 1, pageSize: 200 })
-        this.mySharedData = page.records.map((record) => ({ ...record, status: record.shareType === "公开" ? "共享" : "私有" }))
+        this.mySharedData = page.records.map((record) => ({ ...record, status: record.shareType === "共享" ? "共享" : "私人" }))
+        this.accessLogs = this.mySharedData.map((record) => ({
+          ...record,
+          shareCount: 1,
+          downloadCount: Number(record.downloadCount || 0)
+        }))
       } catch (error) {
         message.error(error instanceof Error ? error.message : "共享数据加载失败")
       }
@@ -418,15 +395,17 @@ export default {
       }
     },
     filterAccessLogs() {
-      message.info("操作审计按当前接入范围暂缓")
+      this.logPaginationConfig.current = 1
     },
 
     resetLogFilter() {
       this.logFilter = {
-        userId: "",
-        dataId: "",
-        result: undefined
+        keyword: "",
+        dateRange: [],
+        format: undefined,
+        status: undefined
       }
+      this.logPaginationConfig.current = 1
     },
 
     exportAccessLogs() {

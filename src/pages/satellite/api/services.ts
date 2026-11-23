@@ -277,7 +277,7 @@ export const shareApi = {
         dataName: d.name,
         description: d.description || "暂无描述",
         format: d.format || (d.summaries as SatelliteRecord)?.format || "未知",
-        shareType: d.visibility === "public" ? "公开" : "私有",
+        shareType: d.visibility === "public" ? "共享" : "私人",
         permissions: d.visibility === "public" ? ["查看"] : [],
         authTarget: [],
         status: d.publishStatus === "published" ? "已发布" : "未发布",
