@@ -64,13 +64,31 @@ export function toCatalogPayload(record: SatelliteRecord): SatelliteRecord {
 }
 
 export function buildCatalogTree(records: CatalogNode[]): CatalogNode[] {
-  const nodes = records.map((record) => ({ ...record, children: [] as CatalogNode[] }))
+  const nodes = records.map((record, index) => ({ ...record, children: [] as CatalogNode[], __catalogOrder: index }))
   const byId = new Map(nodes.map((node) => [node.id, node]))
   const roots: CatalogNode[] = []
   nodes.forEach((node) => {
     const parent = node.parentId ? byId.get(node.parentId) : undefined
     if (parent && parent !== node) { parent.children?.push(node) } else { roots.push(node) }
   })
+  const compare = (left: CatalogNode & { __catalogOrder?: number }, right: CatalogNode & { __catalogOrder?: number }) => {
+    const leftSort = Number(left.sort)
+    const rightSort = Number(right.sort)
+    const hasLeftSort = Number.isFinite(leftSort)
+    const hasRightSort = Number.isFinite(rightSort)
+    if (hasLeftSort && hasRightSort && leftSort !== rightSort) { return leftSort - rightSort }
+    if (hasLeftSort !== hasRightSort) { return hasLeftSort ? -1 : 1 }
+    const titleCompare = String(left.title ?? "").localeCompare(String(right.title ?? ""), "zh-CN")
+    return titleCompare || ((left.__catalogOrder ?? 0) - (right.__catalogOrder ?? 0))
+  }
+  const sortBranch = (branch: CatalogNode[]) => {
+    branch.sort(compare)
+    branch.forEach((node) => {
+      if (node.children?.length) { sortBranch(node.children) }
+      delete (node as CatalogNode & { __catalogOrder?: number }).__catalogOrder
+    })
+  }
+  sortBranch(roots)
   return roots
 }
 

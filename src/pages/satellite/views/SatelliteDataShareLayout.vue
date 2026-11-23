@@ -10,36 +10,46 @@
     <a-tabs v-model:activeKey="activeTab" type="card">
       <!-- 我的共享 -->
       <a-tab-pane key="myshare" tab="我的共享">
-        <div class="operation-area">
-          <a-button type="primary" @click="showShareDataDialog">
-            <ShareAltOutlined />
-            分享数据
-          </a-button>
-        </div>
-
-        <a-card :bordered="false" style="margin-top: 16px">
+        <a-card :bordered="false" style="margin-top: 0">
           <template #title>
             <FolderOpenOutlined /> 我分享的数据
           </template>
 
+          <template #extra>
+            <div class="share-toolbar">
+              <a-button type="primary" @click="showShareDataDialog">
+                <ShareAltOutlined />
+                分享数据
+              </a-button>
+              <a-input-search v-model:value="myShareFilters.keyword" placeholder="搜索数据集名称或描述" allow-clear style="width: 220px" />
+              <a-range-picker v-model:value="myShareFilters.dateRange" value-format="YYYY-MM-DD" />
+              <a-select v-model:value="myShareFilters.format" placeholder="数据格式" allow-clear style="width: 140px">
+                <a-select-option v-for="format in myShareFormats" :key="format" :value="format">{{ format }}</a-select-option>
+              </a-select>
+            </div>
+          </template>
+
           <a-table
             :columns="myShareColumns"
-            :data-source="mySharedData"
+            :data-source="filteredMySharedData"
             :loading="loading"
-            row-key="shareId"
+            row-key="dataId"
           >
             <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'shareType'">
-                <a-tag :color="record.shareType === '公开' ? 'green' : 'orange'" size="small">
-                  {{ record.shareType }}
+              <template v-if="column.key === 'createdAt'">
+                {{ formatShareDate(record.createdAt) }}
+              </template>
+              <template v-else-if="column.key === 'status'">
+                <a-tag :color="record.status === '共享' ? 'green' : 'orange'" size="small">
+                  {{ record.status }}
                 </a-tag>
               </template>
               <template v-else-if="column.key === 'operation'">
-                <a @click="viewShareLink(record)">查看链接</a>
+                <a @click="viewShareDetail(record)">详情</a>
                 <a-divider type="vertical" />
-                <a @click="viewShareStats(record)">统计</a>
+                <a @click="editShare(record)">编辑</a>
                 <a-divider type="vertical" />
-                <a style="color: #f5222d" @click="cancelShare(record)">取消分享</a>
+                <a style="color: #f5222d" @click="deleteShare(record)">删除</a>
               </template>
             </template>
           </a-table>
@@ -52,36 +62,37 @@
           <template #title>
             <InboxOutlined /> 共享给我的数据
           </template>
+          <template #extra>
+            <div class="share-toolbar">
+              <a-input-search v-model:value="sharedToMeFilters.keyword" placeholder="搜索数据集名称或描述" allow-clear style="width: 220px" />
+              <a-range-picker v-model:value="sharedToMeFilters.dateRange" value-format="YYYY-MM-DD" />
+              <a-select v-model:value="sharedToMeFilters.format" placeholder="数据格式" allow-clear style="width: 140px">
+                <a-select-option v-for="format in sharedToMeFormats" :key="format" :value="format">{{ format }}</a-select-option>
+              </a-select>
+            </div>
+          </template>
 
           <a-table
             :columns="sharedToMeColumns"
-            :data-source="sharedToMeData"
+            :data-source="filteredSharedToMeData"
             :loading="loading"
             row-key="dataId"
           >
             <template #bodyCell="{ column, record }">
-              <template v-if="column.key === 'permissions'">
-                <a-tag
-                  v-for="perm in record.permissions"
-                  :key="perm"
-                  size="small"
-                  style="margin-right: 5px"
-                >
-                  {{ perm }}
-                </a-tag>
+              <template v-if="column.key === 'createdAt'">
+                {{ formatShareDate(record.createdAt) }}
               </template>
               <template v-else-if="column.key === 'status'">
-                <a-badge
-                  :status="record.status === '有效' ? 'success' : 'error'"
-                  :text="record.status"
-                />
+                <a-tag :color="record.status === '共享' ? 'green' : 'orange'" size="small">
+                  {{ record.status }}
+                </a-tag>
               </template>
               <template v-else-if="column.key === 'operation'">
-                <a @click="accessSharedData(record)">访问</a>
-                <template v-if="record.permissions.includes('下载')">
-                  <a-divider type="vertical" />
-                  <a @click="downloadSharedData(record)">下载</a>
-                </template>
+                <a @click="viewSharedToMeDetail(record)">详情</a>
+                <a-divider type="vertical" />
+                <a @click="useSharedData(record)">使用</a>
+                <a-divider type="vertical" />
+                <a style="color: #f5222d" @click="deleteSharedToMe(record)">删除</a>
               </template>
             </template>
           </a-table>
@@ -91,7 +102,7 @@
       <!-- 访问监控 -->
       <a-tab-pane key="monitor" tab="访问监控">
         <!-- 统计信息 -->
-        <a-row :gutter="16" style="margin-bottom: 16px">
+        <a-row v-if="false" :gutter="16" style="margin-bottom: 16px">
           <a-col :span="6">
             <a-card>
               <a-statistic title="总访问次数" :value="accessStatistics.totalAccess">
@@ -222,7 +233,10 @@
 </template>
 
 <script>
-import { message, Modal, Statistic, Badge } from "ant-design-vue"
+import { message, Modal, Statistic } from "ant-design-vue"
+import { useWidget } from "@mars/common/store/widget"
+import { nextTick } from "vue"
+import { useRouter } from "vue-router"
 import {
   FileTextOutlined,
   ShareAltOutlined,
@@ -234,13 +248,22 @@ import { metadataApi, shareApi } from "../api/services"
 
 export default {
   name: "SatelliteDataShareLayout",
+  setup() {
+    const { activate } = useWidget()
+    const router = useRouter()
+    async function openDatasetRepository(datasetId) {
+      await router.push("/")
+      await nextTick()
+      activate({ name: "dataset-repository", data: { props: { restoreCollectionId: String(datasetId || "") } } })
+    }
+    return { openDatasetRepository }
+  },
   components: {
     FileTextOutlined,
     ShareAltOutlined,
     FolderOpenOutlined,
     InboxOutlined,
-    AStatistic: Statistic,
-    ABadge: Badge
+    AStatistic: Statistic
   },
   data() {
     return {
@@ -282,24 +305,26 @@ export default {
 
       // 我的共享
       mySharedData: [],
+      myShareFilters: { keyword: "", dateRange: [], format: undefined },
+      myShareFormats: ["GeoJSON", "GeoTIFF", "SHP", "CSV", "未知"],
       myShareColumns: [
-        { title: "分享ID", dataIndex: "shareId", key: "shareId", width: 180 },
-        { title: "数据名称", dataIndex: "dataName", key: "dataName" },
-        { title: "分享类型", dataIndex: "shareType", key: "shareType", width: 100 },
-        { title: "访问次数", dataIndex: "accessCount", key: "accessCount", width: 100 },
-        { title: "下载次数", dataIndex: "downloadCount", key: "downloadCount", width: 100 },
-        { title: "操作", key: "operation", fixed: "right", width: 200 }
+        { title: "数据集名称", dataIndex: "dataName", key: "dataName", ellipsis: true },
+        { title: "内容描述", dataIndex: "description", key: "description", ellipsis: true },
+        { title: "发布时间", dataIndex: "createdAt", key: "createdAt", width: 180 },
+        { title: "状态", dataIndex: "status", key: "status", width: 100 },
+        { title: "操作", key: "operation", fixed: "right", width: 180 }
       ],
 
       // 共享给我的
       sharedToMeData: [],
+      sharedToMeFilters: { keyword: "", dateRange: [], format: undefined },
+      sharedToMeFormats: ["GeoJSON", "GeoTIFF", "SHP", "CSV", "未知"],
       sharedToMeColumns: [
-        { title: "数据名称", dataIndex: "dataName", key: "dataName" },
-        { title: "分享人", dataIndex: "shareFrom", key: "shareFrom", width: 100 },
-        { title: "权限", dataIndex: "permissions", key: "permissions", width: 150 },
-        { title: "接收时间", dataIndex: "receiveTime", key: "receiveTime", width: 180 },
+        { title: "数据集名称", dataIndex: "dataName", key: "dataName", ellipsis: true },
+        { title: "内容描述", dataIndex: "description", key: "description", ellipsis: true },
+        { title: "导入时间", dataIndex: "createdAt", key: "createdAt", width: 180 },
         { title: "状态", dataIndex: "status", key: "status", width: 100 },
-        { title: "操作", key: "operation", width: 150 }
+        { title: "操作", key: "operation", width: 180 }
       ],
 
       availableData: [],
@@ -316,8 +341,71 @@ export default {
   },
   mounted() {
     this.loadAvailableData()
+    this.loadMySharedData()
+    this.loadSharedToMeData()
+  },
+  computed: {
+    filteredMySharedData() {
+      const keyword = String(this.myShareFilters.keyword || "").trim().toLowerCase()
+      const [start, end] = this.myShareFilters.dateRange || []
+      return this.mySharedData.filter((item) => {
+        const textMatch = !keyword || `${item.dataName || ""} ${item.description || ""}`.toLowerCase().includes(keyword)
+        const date = item.createdAt ? new Date(item.createdAt).toISOString().slice(0, 10) : ""
+        const dateMatch = (!start || date >= start) && (!end || date <= end)
+        const formatMatch = !this.myShareFilters.format || item.format === this.myShareFilters.format
+        return textMatch && dateMatch && formatMatch
+      })
+    },
+    filteredSharedToMeData() {
+      const keyword = String(this.sharedToMeFilters.keyword || "").trim().toLowerCase()
+      const [start, end] = this.sharedToMeFilters.dateRange || []
+      return this.sharedToMeData.filter((item) => {
+        const textMatch = !keyword || `${item.dataName || ""} ${item.description || ""}`.toLowerCase().includes(keyword)
+        const date = item.createdAt ? new Date(item.createdAt).toISOString().slice(0, 10) : ""
+        const dateMatch = (!start || date >= start) && (!end || date <= end)
+        const formatMatch = !this.sharedToMeFilters.format || item.format === this.sharedToMeFilters.format
+        return textMatch && dateMatch && formatMatch
+      })
+    }
   },
   methods: {
+    async loadSharedToMeData() {
+      try {
+        const page = await shareApi.list({ pageNo: 1, pageSize: 200 })
+        this.sharedToMeData = page.records.map((record) => ({ ...record, status: record.shareType === "公开" ? "共享" : "私人" }))
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : "共享给我的数据加载失败")
+      }
+    },
+    async loadMySharedData() {
+      try {
+        const page = await shareApi.list({ pageNo: 1, pageSize: 200 })
+        this.mySharedData = page.records.map((record) => ({ ...record, status: record.shareType === "公开" ? "共享" : "私有" }))
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : "共享数据加载失败")
+      }
+    },
+    formatShareDate(value) {
+      return value ? new Date(value).toLocaleString() : "-"
+    },
+    viewShareDetail(record) {
+      Modal.info({ title: "共享数据详情", content: `${record.dataName}：${record.description || "暂无描述"}`, okText: "关闭" })
+    },
+    editShare(record) {
+      message.info(`前端编辑：${record.dataName}`)
+    },
+    deleteShare(record) {
+      Modal.confirm({
+        title: "确定删除该共享数据吗？",
+        okText: "删除",
+        okType: "danger",
+        cancelText: "取消",
+        onOk: () => {
+          this.mySharedData = this.mySharedData.filter((item) => item.dataId !== record.dataId)
+          message.success("已从当前列表删除")
+        }
+      })
+    },
     async loadAvailableData() {
       try {
         const page = await metadataApi.list({ pageNo: 1, pageSize: 1000 })
@@ -398,12 +486,23 @@ export default {
       })
     },
 
-    accessSharedData() {
-      message.info("共享给我的功能按当前接入范围暂缓")
+    viewSharedToMeDetail(record) {
+      Modal.info({ title: "共享数据详情", content: `${record.dataName}：${record.description || "暂无描述"}`, okText: "关闭" })
     },
-
-    downloadSharedData(record) {
-      message.info(`项目一当前后端未提供数据文件下载接口：${record.dataName}`)
+    useSharedData(record) {
+      this.openDatasetRepository(record.dataId)
+    },
+    deleteSharedToMe(record) {
+      Modal.confirm({
+        title: "确定删除该共享数据吗？",
+        okText: "删除",
+        okType: "danger",
+        cancelText: "取消",
+        onOk: () => {
+          this.sharedToMeData = this.sharedToMeData.filter((item) => item.dataId !== record.dataId)
+          message.success("已从当前列表删除")
+        }
+      })
     }
   }
 }
@@ -433,15 +532,11 @@ export default {
     }
   }
 
-  .operation-area {
-    margin-bottom: 16px;
-    padding: 15px 20px;
-    background: white;
-    border-radius: 4px;
-
-    button {
-      margin-right: 8px;
-    }
+  .share-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
   }
 }
 </style>

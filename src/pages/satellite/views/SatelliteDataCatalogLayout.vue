@@ -57,10 +57,11 @@
     </a-row>
 
     <!-- 主内容区 -->
-    <a-row :gutter="16">
+    <a-row class="catalog-main-row" :gutter="16">
       <!-- 左侧：目录树 -->
       <a-col :span="8">
         <a-card title="📂 目录结构" :bordered="false">
+          <div class="catalog-tree-scroll">
           <a-tree
             :tree-data="catalogTree"
             :expanded-keys="expandedKeys"
@@ -71,12 +72,13 @@
               <span>{{ node.title }} <a-tag>{{ node.count || 0 }}</a-tag></span>
             </template>
           </a-tree>
+          </div>
         </a-card>
       </a-col>
 
       <!-- 右侧：目录详情与关联数据 -->
       <a-col :span="16">
-        <a-card v-if="currentCatalog" :bordered="false">
+        <a-card v-if="currentCatalog" class="catalog-panel-card" :bordered="false">
           <template #title>
             <InfoCircleOutlined /> 目录详情
           </template>
@@ -473,5 +475,51 @@ export default {
       }
     }
   }
+}
+.catalog-main-row {
+  height: 420px;
+  max-height: 420px;
+  min-height: 420px;
+  align-items: stretch;
+
+  > .ant-col {
+    display: flex;
+  }
+
+  :deep(.ant-card) {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  :deep(.ant-card-head) {
+    flex: 0 0 auto;
+  }
+
+  :deep(.ant-card-body) {
+    min-height: 0;
+    height: calc(100% - 57px);
+    flex: 0 0 calc(100% - 57px);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  :deep(.ant-col:first-child .ant-card-body) {
+    overflow: hidden;
+  }
+}
+
+.catalog-tree-scroll {
+  height: 100%;
+  max-height: 100%;
+  flex: 0 0 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
 }
 </style>

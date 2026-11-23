@@ -271,9 +271,12 @@ export const shareApi = {
     const shares: SatelliteRecord[] = (res.data as unknown as SatelliteRecord[])
       .filter((d) => String(d.visibility || "") !== "")
       .map((d) => ({
-        id: d.datasetId,
+      id: d.datasetId,
+        datasetName: d.name,
         dataId: d.datasetId,
         dataName: d.name,
+        description: d.description || "暂无描述",
+        format: d.format || (d.summaries as SatelliteRecord)?.format || "未知",
         shareType: d.visibility === "public" ? "公开" : "私有",
         permissions: d.visibility === "public" ? ["查看"] : [],
         authTarget: [],
