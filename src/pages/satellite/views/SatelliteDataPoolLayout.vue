@@ -460,8 +460,8 @@ export default {
           { title: "操作", key: "operation", width: 90 }
         ],
         output: [
-          { title: "产出的数据名称", dataIndex: "name", key: "name", ellipsis: true },
-          { title: "产出的子系统模块", dataIndex: "module", key: "module" },
+          { title: "数据名称", dataIndex: "name", key: "name", ellipsis: true },
+          { title: "产出的子系统名称", dataIndex: "module", key: "module" },
           { title: "产出时间", dataIndex: "time", key: "time" },
           { title: "数据内容", dataIndex: "content", key: "content", ellipsis: true },
           { title: "是否发送成功", dataIndex: "sent", key: "sent" },
@@ -663,11 +663,19 @@ export default {
         { key: "upload", title: "数据上传情况", period: this.uploadPeriod, categories: this.uploadCategories }
       ]
     },
+    allDataList() {
+      const result = {}
+      for (const cardKey of ["access", "output", "upload"]) {
+        const records = Object.values(this.dataListRecords[cardKey] || {}).flat()
+        result[cardKey] = Array.from(new Map(records.map((record) => [record.id, record])).values())
+      }
+      return result
+    },
     currentDataList() {
       return {
-        access: this.dataListRecords.access[this.accessPeriod] || [],
-        output: this.dataListRecords.output[this.outputPeriod] || [],
-        upload: this.dataListRecords.upload[this.uploadPeriod] || []
+        access: this.allDataList.access,
+        output: this.allDataList.output,
+        upload: this.allDataList.upload
       }
     },
     filteredDataList() {
@@ -796,13 +804,7 @@ export default {
     },
 
     isDateDisabled(cardKey, date) {
-      let period = this.uploadPeriod
-      if (cardKey === "access") { period = this.accessPeriod }
-      if (cardKey === "output") { period = this.outputPeriod }
-      const days = period === "month" ? 29 : 6
-      const start = dayjs().startOf("day").subtract(days, "day")
-      const end = dayjs().endOf("day")
-      return date.isBefore(start, "day") || date.isAfter(end, "day")
+      return false
     },
 
     showDataDetail(cardKey, record) {
@@ -1371,6 +1373,10 @@ export default {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 16px;
     margin-bottom: 16px;
+
+    .card-display-actions > .ant-radio-group {
+      display: none;
+    }
   }
 
   .access-data-card {

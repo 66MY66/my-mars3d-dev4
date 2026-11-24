@@ -163,6 +163,26 @@
     <!-- 分享数据对话框 -->
     <a-modal
       title="分享数据"
+      :open="statusEditDialogVisible"
+      @ok="saveShareStatus"
+      @cancel="statusEditDialogVisible = false"
+    >
+      <a-form :label-col="{ span: 6 }" :wrapper-col="{ span: 16 }">
+        <a-form-item label="数据集">
+          <span>{{ statusEditRecord?.dataName || "-" }}</span>
+        </a-form-item>
+        <a-form-item label="状态">
+          <a-select v-model:value="statusEditValue" :disabled="statusEditRecord?.status === '未发布'">
+            <a-select-option value="私人">私人</a-select-option>
+            <a-select-option value="共享">共享</a-select-option>
+            <a-select-option value="未发布" disabled>未发布</a-select-option>
+          </a-select>
+          <div v-if="statusEditRecord?.status === '未发布'" class="status-edit-tip">未发布状态不可修改</div>
+        </a-form-item>
+      </a-form>
+    </a-modal>
+
+    <a-modal
       :open="shareDialogVisible"
       :confirm-loading="confirmLoading"
       @ok="handleShareData"
@@ -296,7 +316,10 @@ export default {
         shareType: "public",
         recipients: "",
         expireDays: 7
-      }
+      },
+      statusEditDialogVisible: false,
+      statusEditRecord: null,
+      statusEditValue: "私人"
     }
   },
   mounted() {
@@ -352,7 +375,7 @@ export default {
     async loadMySharedData() {
       try {
         const page = await shareApi.list({ pageNo: 1, pageSize: 200 })
-        this.mySharedData = page.records.map((record) => ({ ...record, status: record.shareType === "共享" ? "共享" : "私人" }))
+        this.mySharedData = page.records.map((record) => ({ ...record, status: record.status === "未发布" ? "未发布" : record.shareType }))
         this.accessLogs = this.mySharedData.map((record) => ({
           ...record,
           shareCount: 1,
@@ -369,7 +392,22 @@ export default {
       Modal.info({ title: "共享数据详情", content: `${record.dataName}：${record.description || "暂无描述"}`, okText: "关闭" })
     },
     editShare(record) {
-      message.info(`前端编辑：${record.dataName}`)
+      this.statusEditRecord = record
+      this.statusEditValue = record.status
+      this.statusEditDialogVisible = true
+    },
+    saveShareStatus() {
+      if (!this.statusEditRecord || this.statusEditRecord.status === "未发布") {
+        this.statusEditDialogVisible = false
+        return
+      }
+      const record = this.mySharedData.find((item) => item.dataId === this.statusEditRecord.dataId)
+      if (record) {
+        record.status = this.statusEditValue
+        record.shareType = this.statusEditValue
+      }
+      this.statusEditDialogVisible = false
+      message.success("共享状态已更新（当前页面）")
     },
     deleteShare(record) {
       Modal.confirm({
