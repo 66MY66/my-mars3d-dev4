@@ -102,10 +102,12 @@
     </template>
   </mars-dialog>
   <mars-dialog
+    ref="layerPropsDialogRef"
     v-model:visible="showLayerProps"
     title="图层属性详情"
+    custom-class="layer-props-detail"
     width="300"
-    :position="{ top: 100, right: 350 }"
+    :position="{ right: 16, bottom: 16 }"
   >
     <div v-if="inspectedLayerId" class="layer-style-editor">
       <div class="prop-divider">样式调节</div>
@@ -237,8 +239,25 @@ const attrs = useAttrs()
 const LAYER_DIALOG_MIN_WIDTH = 300
 const LAYER_DIALOG_HANDLES = [...POPUP_PANEL_RESIZE_HANDLES]
 const LAYER_PERSIST_KEY = "mars_dialog_persist_v1_manage-layer_pannel"
+const LAYER_PROPS_PERSIST_KEY = "mars_dialog_persist_v1_layer-props-detail"
+
+try {
+  const rawPropsLayout = localStorage.getItem(LAYER_PROPS_PERSIST_KEY)
+  if (rawPropsLayout) {
+    const parsedPropsLayout = JSON.parse(rawPropsLayout)
+    const propsTop = Number(parsedPropsLayout?.top)
+    const propsHeight = Number(parsedPropsLayout?.height)
+    const headerOffscreen = !Number.isFinite(propsTop) || propsTop < 0 || propsTop > window.innerHeight - 80
+    const tallerThanView = Number.isFinite(propsHeight) && propsHeight > window.innerHeight
+    if (headerOffscreen || tallerThanView) {
+      localStorage.removeItem(LAYER_PROPS_PERSIST_KEY)
+    }
+  }
+} catch {
+}
 
 const layerDialogRef = ref<{ resetLayoutToDefault?:(skipAnimation?: boolean) => void } | null>(null)
+const layerPropsDialogRef = ref<{ resetLayoutToDefault?:(skipAnimation?: boolean) => void } | null>(null)
 
 const dialogPosition = computed(() => {
   const p = (attrs as any)?.position
@@ -793,6 +812,52 @@ function handleClearImport({ key }: any) {
 const showLayerProps = ref(false)
 const currentLayerProps = ref<any>({})
 const inspectedLayerId = ref<string>("")
+const propsFollowsLayerVisibility = ref(false)
+const CORNER_LEGEND_LAYER_NAMES = new Set(["全国人口格网（2020）", "全国GDP格网（2020）"])
+
+function isCornerLegendLayer(layer: any) {
+  const name = String(layer?.name || layer?.options?.name || "")
+  return CORNER_LEGEND_LAYER_NAMES.has(name)
+}
+
+function layerImageryVisible(layer: any) {
+  return !!layer && layer.show !== false
+}
+
+function measureCornerLegendReserve() {
+  const box = document.querySelector(".population-density-legends") as HTMLElement | null
+  const wrap = document.getElementById("mars-main-view")
+  if (!box || !wrap || box.offsetHeight < 8) {
+    return 32
+  }
+  const bottom = box.getBoundingClientRect().bottom - wrap.getBoundingClientRect().top
+  const reserve = Math.round(bottom + 28)
+  const maxReserve = Math.max(32, wrap.clientHeight - 220)
+  return Math.min(Math.max(32, reserve), maxReserve)
+}
+
+function syncLayerPropsFrame() {
+  const dlg = document.querySelector(".layer-props-detail.mars-dialog") as HTMLElement | null
+  if (!dlg) {
+    return
+  }
+  const layer = inspectedLayerId.value ? mapWork.getLayerById(inspectedLayerId.value) : null
+  if (!showLayerProps.value || !isCornerLegendLayer(layer)) {
+    dlg.style.maxHeight = ""
+    return
+  }
+  dlg.style.maxHeight = `calc(100% - ${measureCornerLegendReserve()}px)`
+}
+
+function closePropsIfTiedImageryHidden(layerId: any) {
+  if (!showLayerProps.value || !propsFollowsLayerVisibility.value) {
+    return
+  }
+  if (normalizeKey(layerId) !== normalizeKey(inspectedLayerId.value)) {
+    return
+  }
+  showLayerProps.value = false
+}
 const rasterStyleEditor = ref<{ brightness: number; contrast: number; gamma: number; saturation: number; hue: number }>({
   brightness: 1,
   contrast: 1,
@@ -885,6 +950,8 @@ watch(
   (open) => {
     if (!open) {
       inspectedLayerId.value = ""
+      propsFollowsLayerVisibility.value = false
+      nextTick(() => syncLayerPropsFrame())
     }
   }
 )
@@ -1814,6 +1881,9 @@ function processCheckedChange(keys: string[], e: any) {
     const show = keys.indexOf(e.node.key) !== -1
     // 使用不触发飞到的显隐控制
     mapWork.updateLayerShowOnly(layer, show)
+    if (!show) {
+      closePropsIfTiedImageryHidden(layer.id)
+    }
     if (show && layer.hasOpacity && !Number.isFinite(Number(opacityValue.value[e.node.key]))) {
       opacityValue.value[e.node.key] = Number.isFinite(Number(layer.opacity)) ? Number(layer.opacity) : 1
     }
@@ -1919,6 +1989,7 @@ const onContextMenuClick = (node: any, type: string) => {
     const layer = mapWork.getLayerById(node.id)
     if (layer) {
       inspectedLayerId.value = String(layer.id || "")
+      propsFollowsLayerVisibility.value = layerImageryVisible(layer)
       syncEditorsFromLayer(layer)
       // 合并 options 中的 metadata 和基础属性
       const metadata = layer.options.metadata || {}
@@ -1930,6 +2001,13 @@ const onContextMenuClick = (node: any, type: string) => {
         ...metadata // 优先显示 metadata 中的规范字段
       }
       showLayerProps.value = true
+      const snapBelowLegend = isCornerLegendLayer(layer)
+      nextTick(() => {
+        if (snapBelowLegend) {
+          layerPropsDialogRef.value?.resetLayoutToDefault?.(true)
+        }
+        syncLayerPropsFrame()
+      })
     }
     return
   }
@@ -2122,6 +2200,7 @@ function hideGroupLayers(node: any) {
     if (layer) {
       layer.show = false
     }
+    closePropsIfTiedImageryHidden(id)
   })
   const nextChecked = checkedKeys.value.filter((k) => !childKeys.includes(k))
   checkedKeys.value = nextChecked
@@ -2875,6 +2954,51 @@ function onClickBimLayer(event: any) {
     word-break: break-all;
     max-height: 200px;
     overflow-y: auto;
+  }
+}
+
+/* 右下角定位时限制在地图可视高度内，正文继续内部滚动，标题和关闭按钮留在可视区域 */
+.layer-props-detail.mars-dialog {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100% - 32px);
+}
+
+.layer-props-detail .mars-dialog__header {
+  flex: 0 0 auto;
+}
+
+.layer-props-detail .mars-dialog__content {
+  flex: 1 1 auto;
+  min-height: 0;
+  height: auto !important;
+  overflow: auto !important;
+}
+
+/* 浅色主题：属性表原先写死深色底上的白字，这里只覆盖本弹窗 */
+:root[data-theme="light"] .layer-props-table {
+  .prop-row {
+    align-items: flex-start;
+    border-bottom-color: var(--border-light);
+
+    .prop-label {
+      color: var(--text-secondary);
+    }
+
+    .prop-value {
+      color: var(--text-primary);
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  .prop-divider {
+    color: var(--color-primary);
+  }
+
+  .raw-json {
+    background: var(--color-surface-2);
+    color: var(--text-primary);
   }
 }
 </style>

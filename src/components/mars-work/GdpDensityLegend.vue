@@ -1,7 +1,7 @@
 <template>
   <aside class="gdp-density-legend" data-testid="gdp-density-legend" aria-label="GDP分布密度图例，单位万元每平方公里">
     <header class="gdp-density-legend__header">
-      <strong>GDP分布密度</strong>
+      <strong>GDP分布密度（2020）</strong>
       <span>万元/平方公里</span>
     </header>
     <div class="gdp-density-legend__scale">
@@ -49,9 +49,9 @@ const legendItems = [
 
 .gdp-density-legend__header {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
   padding-bottom: 7px;
   margin-bottom: 6px;
   border-bottom: 1px solid rgba(23, 32, 51, 0.11);
@@ -59,6 +59,7 @@ const legendItems = [
   strong {
     font-size: 13px;
     font-weight: 650;
+    white-space: nowrap;
   }
 
   span {
