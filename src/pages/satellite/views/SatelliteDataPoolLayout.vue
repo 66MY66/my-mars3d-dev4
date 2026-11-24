@@ -21,7 +21,7 @@
     </div>
 
     <!-- 统计卡片 -->
-    <a-row :gutter="16" style="margin-bottom: 16px">
+    <a-row v-if="false" :gutter="16" style="margin-bottom: 16px">
       <a-col :span="8">
         <a-card>
           <a-statistic title="资源池总数" :value="statistics.totalPools">
@@ -45,6 +45,29 @@
       </a-col>
     </a-row>
 
+    <div class="mini-stats-cards-layout">
+      <a-card v-for="card in miniCards" :key="card.key" :bordered="false" class="mini-stats-card">
+        <template #title>{{ card.title }}</template>
+        <template #extra>
+          <a-radio-group :value="card.period" size="small" button-style="solid" @change="(event) => handleMiniPeriodChange(card.key, event)">
+            <a-radio-button value="month">月周期</a-radio-button>
+            <a-radio-button value="week">周周期</a-radio-button>
+          </a-radio-group>
+        </template>
+        <div class="mini-period-range">{{ periodRangeText(card.period) }}</div>
+        <div class="mini-stats-content">
+          <div class="mini-pie-chart" :style="{ background: pieStyle(card.categories) }"><span /></div>
+          <div class="mini-detail-list">
+            <div v-for="item in card.categories" :key="item.name" class="mini-detail-row">
+              <span class="mini-detail-name"><i :style="{ backgroundColor: item.color }" />{{ item.name }}</span>
+              <span>{{ item.count }}</span>
+              <span class="mini-detail-percent">{{ item.percent }}%</span>
+            </div>
+          </div>
+        </div>
+      </a-card>
+    </div>
+
     <div class="stats-cards-layout">
     <a-card :bordered="false" :class="['access-data-card', { 'is-expanded': expandedCards.access }]">
       <template #title>
@@ -52,11 +75,7 @@
       </template>
       <template #extra>
         <div class="card-display-actions">
-          <a-button type="text" class="card-expand-button" @click="toggleCard('access')">
-            <FullscreenExitOutlined v-if="expandedCards.access" />
-            <FullscreenOutlined v-else />
-          </a-button>
-          <a-button v-if="expandedCards.access" type="link" size="small" class="data-list-toggle" @click="toggleDataList('access')">
+          <a-button type="link" size="small" class="data-list-toggle" @click="toggleDataList('access')">
             数据列表
           </a-button>
           <a-radio-group v-model:value="accessPeriod" size="small" button-style="solid" @change="handleAccessPeriodChange">
@@ -85,7 +104,7 @@
           </div>
         </div>
       </div>
-      <div v-if="expandedCards.access && dataListVisible.access" class="card-data-list">
+      <div v-if="dataListVisible.access" class="card-data-list">
         <div class="data-list-toolbar">
           <a-input-search v-model:value="dataListFilters.access.keyword" placeholder="搜索数据名称、来源" allow-clear style="width: 220px" @search="resetDataListPagination('access')" />
           <a-range-picker v-model:value="dataListFilters.access.dateRange" value-format="YYYY-MM-DD" :disabled-date="(date) => isDateDisabled('access', date)" @change="resetDataListPagination('access')" />
@@ -115,11 +134,7 @@
       </template>
       <template #extra>
         <div class="card-display-actions">
-          <a-button type="text" class="card-expand-button" @click="toggleCard('output')">
-            <FullscreenExitOutlined v-if="expandedCards.output" />
-            <FullscreenOutlined v-else />
-          </a-button>
-          <a-button v-if="expandedCards.output" type="link" size="small" class="data-list-toggle" @click="toggleDataList('output')">
+          <a-button type="link" size="small" class="data-list-toggle" @click="toggleDataList('output')">
             数据列表
           </a-button>
           <a-radio-group v-model:value="outputPeriod" size="small" button-style="solid" @change="handleOutputPeriodChange">
@@ -148,7 +163,7 @@
           </div>
         </div>
       </div>
-      <div v-if="expandedCards.output && dataListVisible.output" class="card-data-list">
+      <div v-if="dataListVisible.output" class="card-data-list">
         <div class="data-list-toolbar">
           <a-input-search v-model:value="dataListFilters.output.keyword" placeholder="搜索数据名称、模块" allow-clear style="width: 220px" @search="resetDataListPagination('output')" />
           <a-range-picker v-model:value="dataListFilters.output.dateRange" value-format="YYYY-MM-DD" :disabled-date="(date) => isDateDisabled('output', date)" @change="resetDataListPagination('output')" />
@@ -177,11 +192,7 @@
       </template>
       <template #extra>
         <div class="card-display-actions">
-          <a-button type="text" class="card-expand-button" @click="toggleCard('upload')">
-            <FullscreenExitOutlined v-if="expandedCards.upload" />
-            <FullscreenOutlined v-else />
-          </a-button>
-          <a-button v-if="expandedCards.upload" type="link" size="small" class="data-list-toggle" @click="toggleDataList('upload')">
+          <a-button type="link" size="small" class="data-list-toggle" @click="toggleDataList('upload')">
             数据列表
           </a-button>
           <a-radio-group v-model:value="uploadPeriod" size="small" button-style="solid" @change="handleUploadPeriodChange">
@@ -210,7 +221,7 @@
           </div>
         </div>
       </div>
-      <div v-if="expandedCards.upload && dataListVisible.upload" class="card-data-list">
+      <div v-if="dataListVisible.upload" class="card-data-list">
         <div class="data-list-toolbar">
           <a-input-search v-model:value="dataListFilters.upload.keyword" placeholder="搜索数据名称、来源" allow-clear style="width: 220px" @search="resetDataListPagination('upload')" />
           <a-range-picker v-model:value="dataListFilters.upload.dateRange" value-format="YYYY-MM-DD" :disabled-date="(date) => isDateDisabled('upload', date)" @change="resetDataListPagination('upload')" />
@@ -234,7 +245,7 @@
     </a-card>
     </div>
 
-    <a-card :bordered="false" class="table-card">
+    <a-card v-if="false" :bordered="false" class="table-card">
       <template #title>
         <DatabaseOutlined /> 资源池列表
       </template>
@@ -398,9 +409,7 @@ import {
   PlusOutlined,
   UploadOutlined,
   ReloadOutlined,
-  DatabaseOutlined,
-  FullscreenOutlined,
-  FullscreenExitOutlined
+  DatabaseOutlined
 } from "@ant-design/icons-vue"
 import { fromPool, toPoolPayload } from "../api/adapters"
 import { poolApi } from "../api/services"
@@ -417,8 +426,6 @@ export default {
     UploadOutlined,
     ReloadOutlined,
     DatabaseOutlined,
-    FullscreenOutlined,
-    FullscreenExitOutlined,
     AStatistic: Statistic,
     ABadge: Badge
   },
@@ -434,9 +441,9 @@ export default {
       outputPieInstance: null,
       outputTrendInstance: null,
       expandedCards: {
-        access: false,
-        output: false,
-        upload: false
+        access: true,
+        output: true,
+        upload: true
       },
       dataListVisible: {
         access: false,
@@ -649,6 +656,13 @@ export default {
     this.hoverUploadDetail.visible = false
   },
   computed: {
+    miniCards() {
+      return [
+        { key: "access", title: "接入数据", period: this.accessPeriod, categories: this.accessCategories },
+        { key: "output", title: "产出情况分布", period: this.outputPeriod, categories: this.outputCategories },
+        { key: "upload", title: "数据上传情况", period: this.uploadPeriod, categories: this.uploadCategories }
+      ]
+    },
     currentDataList() {
       return {
         access: this.dataListRecords.access[this.accessPeriod] || [],
@@ -697,6 +711,37 @@ export default {
     }
   },
   methods: {
+    periodRangeText(period) {
+      const dates = getAccessDateRange(period, new Date(), "full")
+      return `${dates[0]} - ${dates[dates.length - 1]}`
+    },
+
+    pieStyle(categories) {
+      let offset = 0
+      const stops = categories.map((item) => {
+        const start = offset
+        offset += Number(item.percent || 0)
+        return `${item.color} ${start}% ${offset}%`
+      })
+      return `conic-gradient(${stops.join(", ")})`
+    },
+
+    handleMiniPeriodChange(cardKey, event) {
+      const period = event.target.value
+      if (cardKey === "access") {
+        this.accessPeriod = period
+        this.handleAccessPeriodChange()
+      }
+      if (cardKey === "output") {
+        this.outputPeriod = period
+        this.handleOutputPeriodChange()
+      }
+      if (cardKey === "upload") {
+        this.uploadPeriod = period
+        this.handleUploadPeriodChange()
+      }
+    },
+
     toggleCard(cardKey) {
       this.expandedCards[cardKey] = !this.expandedCards[cardKey]
       if (!this.expandedCards[cardKey]) {
@@ -1236,6 +1281,91 @@ export default {
     margin-top: 16px;
   }
 
+  .mini-stats-cards-layout {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+
+  .mini-stats-card {
+    min-width: 0;
+    border-radius: 6px;
+
+    :deep(.ant-card-head) {
+      min-height: 48px;
+      padding: 0 14px;
+    }
+
+    :deep(.ant-card-body) {
+      padding: 10px 14px 14px;
+    }
+  }
+
+  .mini-period-range {
+    margin-bottom: 8px;
+    color: #86909c;
+    font-size: 12px;
+    text-align: right;
+  }
+
+  .mini-stats-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-height: 150px;
+  }
+
+  .mini-pie-chart {
+    display: grid;
+    flex: 0 0 132px;
+    width: 132px;
+    height: 132px;
+    place-items: center;
+    border-radius: 50%;
+
+    span {
+      width: 70px;
+      height: 70px;
+      border-radius: 50%;
+      background: #fff;
+    }
+  }
+
+  .mini-detail-list {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .mini-detail-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 42px 42px;
+    gap: 4px;
+    align-items: center;
+    min-height: 32px;
+    color: #4e5969;
+    font-size: 12px;
+  }
+
+  .mini-detail-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    i {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      margin-right: 6px;
+      border-radius: 50%;
+    }
+  }
+
+  .mini-detail-percent {
+    color: #86909c;
+    text-align: right;
+  }
+
   .stats-cards-layout {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1255,19 +1385,32 @@ export default {
     }
 
     &:not(.is-expanded) {
-      .access-detail-list,
       .access-trend-wrap {
         display: none;
       }
 
       .access-data-content {
         min-height: 170px;
-        justify-content: center;
+        gap: 12px;
+        justify-content: flex-start;
       }
 
       .access-pie-chart {
-        flex-basis: 180px;
+        flex: 0 0 150px;
         height: 165px;
+      }
+
+      .access-detail-list {
+        flex: 1 1 auto;
+        min-width: 0;
+        padding-left: 12px;
+      }
+
+      .access-detail-row {
+        grid-template-columns: minmax(0, 1fr) 44px 42px;
+        gap: 4px;
+        min-height: 34px;
+        font-size: 12px;
       }
     }
 
@@ -1437,12 +1580,20 @@ export default {
   }
 
   @media (max-width: 1100px) {
+    .mini-stats-cards-layout {
+      grid-template-columns: 1fr;
+    }
+
     .stats-cards-layout {
       grid-template-columns: 1fr;
     }
 
     .access-data-card .access-data-content {
       flex-wrap: wrap;
+    }
+
+    .access-data-card:not(.is-expanded) .access-data-content {
+      flex-wrap: nowrap;
     }
 
     .access-data-card .access-trend-wrap {
