@@ -30,6 +30,13 @@
             <a-select-option value="GF-6">GF-6</a-select-option>
             <a-select-option value="Sentinel-1">Sentinel-1</a-select-option>
             <a-select-option value="Sentinel-2">Sentinel-2</a-select-option>
+            <a-select-option value="Landsat-8">Landsat-8</a-select-option>
+            <a-select-option value="AQUA">AQUA</a-select-option>
+            <a-select-option value="NOAA-20">NOAA-20</a-select-option>
+            <a-select-option value="SUOMI-NPP">SUOMI-NPP</a-select-option>
+            <a-select-option value="FY-3D">FY-3D</a-select-option>
+            <a-select-option value="FY-3Y">FY-3Y</a-select-option>
+            <a-select-option value="FY-3F">FY-3F</a-select-option>
           </a-select>
         </a-form-item>
         <a-form-item label="数据类型">

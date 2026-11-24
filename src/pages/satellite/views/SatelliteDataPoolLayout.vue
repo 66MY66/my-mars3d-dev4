@@ -463,13 +463,13 @@ export default {
           { title: "数据名称", dataIndex: "name", key: "name", ellipsis: true },
           { title: "产出的子系统名称", dataIndex: "module", key: "module" },
           { title: "产出时间", dataIndex: "time", key: "time" },
-          { title: "数据内容", dataIndex: "content", key: "content", ellipsis: true },
-          { title: "是否发送成功", dataIndex: "sent", key: "sent" },
+          { title: "数据格式", dataIndex: "format", key: "format", ellipsis: true },
+          { title: "是否发布", dataIndex: "sent", key: "sent" },
           { title: "操作", key: "operation", width: 90 }
         ],
         upload: [
           { title: "数据名称", dataIndex: "name", key: "name", ellipsis: true },
-          { title: "上传来源", dataIndex: "source", key: "source" },
+          { title: "产出来源", dataIndex: "source", key: "source" },
           { title: "上传时间", dataIndex: "time", key: "time" },
           { title: "文件大小", dataIndex: "size", key: "size" },
           { title: "上传状态", dataIndex: "status", key: "status" },
@@ -494,13 +494,13 @@ export default {
       dataListRecords: {
         access: {
           month: [
-            { id: "access-m-1", name: "地面站卫星原始数据", source: "地面站", time: "2026-11-23 09:30", format: "GeoTIFF", status: "已接入" },
-            { id: "access-m-2", name: "气象观测数据", source: "气象数据服务", time: "2026-11-22 16:10", format: "JSON", status: "已接入" },
-            { id: "access-m-3", name: "遥感产品数据", source: "遥感产品目录", time: "2026-11-20 11:45", format: "NetCDF", status: "已接入" }
+            { id: "access-m-1", name: "地面站卫星原始数据", source: "卫星地面站", time: "2026-11-23 09:30", format: "GeoTIFF", status: "已接入" },
+            { id: "access-m-2", name: "气象观测数据", source: "数据接收质控管理软件", time: "2026-11-22 16:10", format: "JSON", status: "已接入" },
+            { id: "access-m-3", name: "遥感产品数据", source: "运行支撑与管理调度软件", time: "2026-11-20 11:45", format: "NetCDF", status: "已接入" }
           ],
           week: [
-            { id: "access-w-1", name: "地面站卫星原始数据", source: "地面站", time: "2026-11-23 09:30", format: "GeoTIFF", status: "已接入" },
-            { id: "access-w-2", name: "应急观测数据", source: "应急数据服务", time: "2026-11-21 14:20", format: "JSON", status: "处理中" }
+            { id: "access-w-1", name: "地面站卫星原始数据", source: "卫星地面站", time: "2026-11-23 09:30", format: "GeoTIFF", status: "已接入" },
+            { id: "access-w-2", name: "应急观测数据", source: "数据接收质控管理软件", time: "2026-11-21 14:20", format: "JSON", status: "处理中" }
           ]
         },
         output: {
