@@ -384,6 +384,7 @@ import {
 import { useWidget } from "@mars/common/store/widget"
 import { hasPermission } from "@/shell/permission"
 import { resetInitialBusinessLayerState, resetInitialMapLayerVisibility } from "@/config/retired-layers"
+import "@/config/road-centerline-layer"
 import { installMarsLogoPrimitiveGuard, MARS3D_BRANDING_SELECTOR, sweepMarsLogoPrimitives } from "./branding"
 import type { ECharts } from "echarts"
 

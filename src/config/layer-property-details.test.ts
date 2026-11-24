@@ -51,4 +51,29 @@ describe("structured layer property details", () => {
     expect(visibleLayers.some((item) => item.id === 103)).toBe(true)
     expect(visibleLayers.some((item) => item.id === 802001)).toBe(true)
   })
+
+  it("places the road centerline under the existing base-geography folder", () => {
+    const layer = layers.find((item) => item.id === 1023)
+    const folder = layers.find((item) => item.id === 102)
+    const sheetFolder = layers.find((item) => item.id === 1020)
+
+    expect(folder).toMatchObject({ name: "基础地理数据", type: "group" })
+    expect(sheetFolder).toMatchObject({ pid: 102, name: "西南基础地理（1:25万）" })
+    expect(layer).toMatchObject({
+      pid: 102,
+      name: "道路中心线",
+      type: "mvt",
+      show: false,
+      flyTo: true,
+      hasOpacity: true,
+      rectangle: { xmin: 98.09, ymin: 24.12, xmax: 100.05, ymax: 25.86 },
+      metadata: {
+        detailProfile: "road-centerline",
+        collection: "public.rs_road_vector_build",
+        featureCount: "163,231"
+      }
+    })
+    expect(layer.url).toBe("http://192.168.10.15:5953/collections/public.rs_road_vector_build/tiles/WebMercatorQuad/{z}/{x}/{y}?f=mvt")
+    expect(layer.pid).not.toBe(1020)
+  })
 })

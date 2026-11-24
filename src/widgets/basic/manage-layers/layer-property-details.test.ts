@@ -1,6 +1,31 @@
 import { describe, expect, it } from "vitest"
 import { buildProfiledLayerPropertySections } from "./layer-property-details"
 
+describe("road centerline property details", () => {
+  it("uses the same four section groups as the other profiled layers", () => {
+    const sections = buildProfiledLayerPropertySections({
+      id: 1023,
+      name: "道路中心线",
+      type: "mvt",
+      detailProfile: "road-centerline",
+      source: "eoAPI TiPG",
+      collection: "public.rs_road_vector_build",
+      geometryType: "LineString",
+      featureCount: "163,231",
+      crs: "EPSG:4326（WGS 84）"
+    })
+
+    expect(sections.map((section) => section.title)).toEqual(["基本信息", "数据信息", "要素信息", "数据说明"])
+    const details = sections.flatMap((section) => section.fields.map((field) => `${field.label}:${field.value}`)).join("\n")
+    expect(details).toContain("public.rs_road_vector_build")
+    expect(details).toContain("163,231")
+    expect(details).toContain("fid、road_level")
+    expect(details).toContain("高速公路")
+    expect(details).toContain("不能代替公路震害成果")
+    expect(details).toContain("东经 98.09°～100.05°")
+  })
+})
+
 describe("building damage heatmap property details", () => {
   it("builds four data-backed property groups", () => {
     const sections = buildProfiledLayerPropertySections({

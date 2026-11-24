@@ -282,6 +282,42 @@ export function buildProfiledLayerPropertySections(layer: any): LayerPropertySec
     ])
   }
 
+  if (profile === "road-centerline") {
+    return cleanSections([
+      { title: "基本信息", fields: basicFields(layer) },
+      {
+        title: "数据信息",
+        fields: [
+          { label: "数据内容", value: "道路中心线" },
+          { label: "数据格式", value: "Mapbox Vector Tile（MVT）" },
+          { label: "源数据坐标系", value: layer.crs || "EPSG:4326（WGS 84）" },
+          { label: "几何类型", value: "LineString（线）" },
+          { label: "空间范围", value: "东经 98.09°～100.05°；北纬 24.12°～25.86°" }
+        ]
+      },
+      {
+        title: "要素信息",
+        fields: [
+          { label: "要素数量", value: layer.featureCount },
+          { label: "可查询属性", value: "fid、road_level" },
+          {
+            label: "道路等级",
+            value: "highWay 高速公路 4,460；nationalRoad 国道 4,760；provincialRoad 省道 2,841；levelThreeRoad 三级公路 56,963；levelFourRoad 四级公路 88,040；secondaryRoad 次级道路 1,557；roadsBeingBuilt 在建道路 3,051；other 其他 804；railway 铁路 300；water 水系 455"
+          }
+        ]
+      },
+      {
+        title: "数据说明",
+        fields: [
+          { label: "内容说明", value: "按道路等级分色显示中心线。road_level 表示道路等级，不表示通行状态，也不能代替公路震害成果" },
+          { label: "其他要素", value: "water 为混入水系，railway 为铁路，与公路使用不同线色；在建道路使用虚线" },
+          { label: "标识说明", value: "fid 是稳定要素标识，预留给后续震害等级关联" },
+          { label: "加载方式", value: "地图按当前视图请求矢量瓦片，不一次加载全部要素" }
+        ]
+      }
+    ])
+  }
+
   if (profile === "thermal-evolution-demo") {
     return cleanSections([
       { title: "基本信息", fields: [{ label: "图层名称", value: layer.name }, { label: "图层类型", value: layer.type }, { label: "图层 ID", value: layer.id }] },
