@@ -110,13 +110,19 @@
                 size="small"
               >
               <template #bodyCell="{ column, record }">
-                <template v-if="column.key === 'satellite'">
-                  <a-tag>{{ record.satellite }}</a-tag>
+                <template v-if="column.key === 'dataName'">
+                  <span class="metadata-ellipsis">{{ metadataDisplayName(record) }}</span>
                 </template>
                 <template v-else-if="column.key === 'dataType'">
                   <a-tag :color="record.dataType === '光学' ? 'green' : 'orange'">
                     {{ record.dataType }}
                   </a-tag>
+                </template>
+                <template v-else-if="column.key === 'description'">
+                  <a-tooltip v-if="metadataDescription(record)" placement="topLeft" :title="metadataDescription(record)">
+                    <span class="metadata-description">{{ metadataDescription(record) }}</span>
+                  </a-tooltip>
+                  <span v-else>—</span>
                 </template>
                 <template v-else-if="column.key === 'operation'">
                   <a @click="viewMetadataDetail(record)">查看</a>
@@ -249,9 +255,9 @@ export default {
       associatedMetadata: [],
       metadataColumns: [
         { title: "元数据ID", dataIndex: "metadataId", key: "metadataId", width: 180 },
-        { title: "卫星型号", dataIndex: "satellite", key: "satellite", width: 100 },
-        { title: "传感器", dataIndex: "sensor", key: "sensor", width: 100 },
+        { title: "数据名称", dataIndex: "title", key: "dataName", width: 180 },
         { title: "数据类型", dataIndex: "dataType", key: "dataType", width: 100 },
+        { title: "数据介绍", key: "description", width: 220 },
         { title: "关联时间", dataIndex: "associateTime", key: "associateTime", width: 160 },
         { title: "操作", key: "operation", width: 150 }
       ],
@@ -474,6 +480,16 @@ export default {
       message.info("项目一当前后端未提供目录与元数据关联接口")
     },
 
+    metadataDisplayName(record) {
+      const name = String(record?.title || record?.name || "").trim()
+      return name || record?.metadataId || "—"
+    },
+
+    metadataDescription(record) {
+      const raw = record?._raw?.properties?.description ?? record?.description
+      return String(raw ?? "").trim()
+    },
+
     viewMetadataDetail(record) {
       Modal.info({
         title: "元数据详情",
@@ -612,5 +628,19 @@ export default {
   flex: 1 1 0;
   overflow: auto;
   padding-right: 4px;
+}
+
+.metadata-ellipsis,
+.metadata-description {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+.metadata-description {
+  max-width: 200px;
 }
 </style>

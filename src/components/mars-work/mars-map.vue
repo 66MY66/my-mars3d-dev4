@@ -116,6 +116,21 @@
               </div>
             </div>
 
+            <div v-if="c.key === 'population' && statsOnMapUi.population" class="population-onmap-opacity">
+              <span>上图不透明度</span>
+              <input
+                v-model.number="populationOnMapOpacity"
+                class="population-onmap-opacity-slider"
+                type="range"
+                min="0.2"
+                max="1"
+                step="0.05"
+                aria-label="调整人口上图不透明度"
+                @input="handlePopulationOnMapOpacityInput"
+              />
+              <span>{{ Math.round(populationOnMapOpacity * 100) }}%</span>
+            </div>
+
             <div v-if="!statsUi.collapsed[c.key]" class="card-body">
               <div v-if="c.key === 'population'" class="population-view-switch">
                 <span class="population-profile-caption">纬向剖面 · 当前纬度 {{ populationProfileLatitudeText }}</span>
@@ -721,6 +736,8 @@ let populationColorBlocksPrimitive: any = null
 let populationCameraHandler: (() => void) | null = null
 let populationRenderRun = 0
 let populationRefreshTimer: number | null = null
+let populationOpacityTimer: number | null = null
+const populationOnMapOpacity = ref(0.65)
 const populationHiddenDrawGraphics: Array<{ graphic: any; show: boolean }> = []
 const populationStatsImageryLayers: any[] = []
 let populationStatsIdentifyCleanup: (() => void) | null = null
@@ -1952,6 +1969,16 @@ function handlePopulationLatitudeInput() {
   }
 }
 
+function handlePopulationOnMapOpacityInput() {
+  if (!statsOnMapUi.population) { return }
+  if (populationOpacityTimer != null) { window.clearTimeout(populationOpacityTimer) }
+  populationOpacityTimer = window.setTimeout(() => {
+    populationOpacityTimer = null
+    const cells = gridStatsResults.get("population")?.selectedCells
+    if (cells?.length) { renderPopulationStatsImagery(cells as any) }
+  }, 80)
+}
+
 function closeIdentify() {
   identifyVisible.value = false
   clearIdentifyResult()
@@ -2251,6 +2278,7 @@ function renderPopulationStatsImagery(cells: Array<{ row: number; column: number
   const Cesium = (mars3d as any).Cesium
   if (!map || !Cesium || !cells.length) { return }
   if (populationCellPrimitive) { try { map.scene.primitives.remove(populationCellPrimitive) } catch {} }
+  const alpha = Math.round(Math.min(1, Math.max(0.2, Number(populationOnMapOpacity.value) || 0.65)) * 255)
   const instances = cells.map((cell) => {
     const [red, green, blue] = populationVisualRgb(Number(cell.value))
     return new Cesium.GeometryInstance({
@@ -2258,12 +2286,12 @@ function renderPopulationStatsImagery(cells: Array<{ row: number; column: number
         rectangle: Cesium.Rectangle.fromDegrees(cell.west, cell.south, cell.east, cell.north),
         vertexFormat: Cesium.PerInstanceColorAppearance.VERTEX_FORMAT
       }),
-      attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(Cesium.Color.fromBytes(red, green, blue, 255)) }
+      attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(Cesium.Color.fromBytes(red, green, blue, alpha)) }
     })
   })
   populationCellPrimitive = map.scene.primitives.add(new Cesium.GroundPrimitive({
     geometryInstances: instances,
-    appearance: new Cesium.PerInstanceColorAppearance({ flat: true, translucent: false }),
+    appearance: new Cesium.PerInstanceColorAppearance({ flat: true, translucent: alpha < 255 }),
     asynchronous: true
   }))
   hidePopulationDrawGraphics()
@@ -2271,11 +2299,29 @@ function renderPopulationStatsImagery(cells: Array<{ row: number; column: number
   map.scene.requestRender?.()
 }
 
+function isPopulationDrawnAreaGraphic(graphic: any) {
+  if (graphic?.attr?.drawShape === true) { return true }
+  if (graphic?.attr?.measure === true && graphic?.attr?.parentId) { return true }
+  if (graphic?.attr?.regionType === "disaster") { return true }
+  const type = String(graphic?.type || graphic?.options?.type || "").toLowerCase()
+  return type === "polygon" || type === "polygonp" || type === "rectangle" || type === "rectanglep"
+}
+
 function hidePopulationDrawGraphics() {
-  const graphics = map?.graphicLayer?.getGraphics?.() || []
+  const layer = map?.graphicLayer
+  const graphics = layer?.getGraphics?.() || []
+  const hidden = new Set(populationHiddenDrawGraphics.map((item) => item.graphic))
+  const targets: any[] = []
   graphics.forEach((graphic: any) => {
-    const isDrawnArea = graphic?.attr?.drawShape === true || (graphic?.attr?.measure === true && graphic?.attr?.parentId)
-    if (!isDrawnArea || populationHiddenDrawGraphics.some((item) => item.graphic === graphic)) { return }
+    if (isPopulationDrawnAreaGraphic(graphic)) { targets.push(graphic) }
+    const parentId = graphic?.attr?.parentId
+    if (!(graphic?.attr?.measure === true && parentId) || typeof layer?.getGraphicById !== "function") { return }
+    const parent = layer.getGraphicById(parentId)
+    if (parent) { targets.push(parent) }
+  })
+  targets.forEach((graphic) => {
+    if (!graphic || hidden.has(graphic)) { return }
+    hidden.add(graphic)
     populationHiddenDrawGraphics.push({ graphic, show: graphic.show !== false })
     graphic.show = false
   })
@@ -4198,6 +4244,10 @@ onMounted(() => {
 })
 // 组件卸载之前销毁mars3d实例
 onUnmounted(() => {
+  if (populationOpacityTimer != null) {
+    window.clearTimeout(populationOpacityTimer)
+    populationOpacityTimer = null
+  }
   gridStatsControllers.forEach((controller) => controller.abort())
   gridStatsControllers.clear()
   gridStatsResults.clear()
@@ -4574,6 +4624,21 @@ onUnmounted(() => {
 .card-level {
   display: flex;
   justify-content: flex-start;
+}
+
+.population-onmap-opacity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.population-onmap-opacity-slider {
+  flex: 1;
+  min-width: 80px;
+  accent-color: #4c8dff;
+  cursor: pointer;
 }
 
 .population-view-switch {
