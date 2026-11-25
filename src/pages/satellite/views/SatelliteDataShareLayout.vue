@@ -40,8 +40,8 @@
                 {{ formatShareDate(record.createdAt) }}
               </template>
               <template v-else-if="column.key === 'status'">
-                <a-tag :color="record.status === '共享' ? 'green' : 'orange'" size="small">
-                  {{ record.status }}
+                <a-tag :color="shareStatusColor(record.status)" size="small">
+                  {{ shareStatusText(record.status) }}
                 </a-tag>
               </template>
               <template v-else-if="column.key === 'operation'">
@@ -172,12 +172,11 @@
           <span>{{ statusEditRecord?.dataName || "-" }}</span>
         </a-form-item>
         <a-form-item label="状态">
-          <a-select v-model:value="statusEditValue" :disabled="statusEditRecord?.status === '未发布'">
-            <a-select-option value="私人">私人</a-select-option>
+          <a-select v-model:value="statusEditValue">
+            <a-select-option value="私有">私有</a-select-option>
             <a-select-option value="共享">共享</a-select-option>
-            <a-select-option value="未发布" disabled>未发布</a-select-option>
+            <a-select-option value="审核中">审核中</a-select-option>
           </a-select>
-          <div v-if="statusEditRecord?.status === '未发布'" class="status-edit-tip">未发布状态不可修改</div>
         </a-form-item>
       </a-form>
     </a-modal>
@@ -319,7 +318,7 @@ export default {
       },
       statusEditDialogVisible: false,
       statusEditRecord: null,
-      statusEditValue: "私人"
+      statusEditValue: "私有"
     }
   },
   mounted() {
@@ -388,16 +387,29 @@ export default {
     formatShareDate(value) {
       return value ? new Date(value).toLocaleString() : "-"
     },
+    shareStatusText(status) {
+      const value = String(status || "")
+      if (value === "私有" || value === "私人" || value === "private") { return "私有" }
+      if (value === "共享" || value === "public") { return "共享" }
+      if (value === "审核中" || value === "未发布") { return "审核中" }
+      return value || "私有"
+    },
+    shareStatusColor(status) {
+      const label = this.shareStatusText(status)
+      if (label === "共享") { return "green" }
+      if (label === "审核中") { return "gold" }
+      return "default"
+    },
     viewShareDetail(record) {
       Modal.info({ title: "共享数据详情", content: `${record.dataName}：${record.description || "暂无描述"}`, okText: "关闭" })
     },
     editShare(record) {
       this.statusEditRecord = record
-      this.statusEditValue = record.status
+      this.statusEditValue = this.shareStatusText(record.status)
       this.statusEditDialogVisible = true
     },
     saveShareStatus() {
-      if (!this.statusEditRecord || this.statusEditRecord.status === "未发布") {
+      if (!this.statusEditRecord) {
         this.statusEditDialogVisible = false
         return
       }

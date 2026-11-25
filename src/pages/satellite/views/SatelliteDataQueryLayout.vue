@@ -20,30 +20,52 @@
       </div>
     </div>
 
-    <!-- 查询条件区 -->
+    <!-- 上方：搜索、数据类型、时间范围 -->
     <a-card :bordered="false" title="🔍 查询条件" class="search-card">
-      <a-form layout="inline">
-        <a-form-item label="卫星类型">
+      <a-form layout="inline" class="query-primary-form">
+        <a-form-item label="搜索">
+          <a-input
+            v-model:value="searchForm.keyword"
+            placeholder="请输入关键字"
+            allow-clear
+            @pressEnter="handleSearch"
+          />
+        </a-form-item>
+        <a-form-item label="数据类型">
           <a-select
-            v-model:value="searchForm.satellite"
-            mode="multiple"
+            v-model:value="searchForm.dataType"
             placeholder="请选择"
-            style="width: 200px"
             allow-clear
           >
-            <a-select-option value="GF-1">GF-1</a-select-option>
-            <a-select-option value="GF-6">GF-6</a-select-option>
-            <a-select-option value="Sentinel-1">Sentinel-1</a-select-option>
-            <a-select-option value="Sentinel-2">Sentinel-2</a-select-option>
-            <a-select-option value="Landsat-8">Landsat-8</a-select-option>
-            <a-select-option value="AQUA">AQUA</a-select-option>
-            <a-select-option value="NOAA-20">NOAA-20</a-select-option>
-            <a-select-option value="SUOMI-NPP">SUOMI-NPP</a-select-option>
-            <a-select-option value="FY-3D">FY-3D</a-select-option>
-            <a-select-option value="FY-3Y">FY-3Y</a-select-option>
-            <a-select-option value="FY-3F">FY-3F</a-select-option>
+            <a-select-option value="光学">光学</a-select-option>
+            <a-select-option value="SAR">SAR</a-select-option>
+            <a-select-option value="红外">红外</a-select-option>
           </a-select>
         </a-form-item>
+        <a-form-item label="时间范围">
+          <a-range-picker v-model:value="searchForm.dateRange" format="YYYY-MM-DD" />
+        </a-form-item>
+      </a-form>
+    </a-card>
+
+    <!-- 下方：卫星类型与其余筛选 -->
+    <a-card :bordered="false" title="筛选条件" class="search-card filter-card">
+      <div class="satellite-type-row">
+        <span class="field-label">卫星类型</span>
+        <div class="satellite-model-options">
+          <a-button
+            v-for="model in satelliteModels"
+            :key="model"
+            type="default"
+            :class="['satellite-model-button', { selected: searchForm.satellite.includes(model) }]"
+            @click="toggleSatellite(model)"
+          >
+            <a-checkbox :checked="searchForm.satellite.includes(model)" @click.stop="toggleSatellite(model)" />
+            <span>{{ model }}</span>
+          </a-button>
+        </div>
+      </div>
+      <a-form layout="inline" class="query-secondary-form">
         <a-form-item label="传感器">
           <a-select
             v-model:value="searchForm.sensor"
@@ -57,9 +79,6 @@
             <a-select-option value="SAR">SAR</a-select-option>
             <a-select-option value="MSI">MSI</a-select-option>
           </a-select>
-        </a-form-item>
-        <a-form-item label="时间范围">
-          <a-range-picker v-model:value="searchForm.dateRange" format="YYYY-MM-DD" style="width: 260px" />
         </a-form-item>
         <a-form-item label="空间区域">
           <a-input
@@ -98,13 +117,6 @@
             :marks="{ 0: '0%', 50: '50%', 100: '100%' }"
             style="width: 200px"
           />
-        </a-form-item>
-        <a-form-item label="数据类型">
-          <a-checkbox-group v-model:value="searchForm.dataTypes">
-            <a-checkbox value="光学">光学</a-checkbox>
-            <a-checkbox value="SAR">SAR</a-checkbox>
-            <a-checkbox value="红外">红外</a-checkbox>
-          </a-checkbox-group>
         </a-form-item>
       </a-form>
     </a-card>
@@ -332,6 +344,8 @@ export default {
       viewMode: "list",
       detailActiveTab: "basic",
 
+      satelliteModels: ["GF-1", "GF-6", "Sentinel-1", "Sentinel-2", "Landsat-8", "AQUA", "NOAA-20", "SUOMI-NPP", "FY-3D", "FY-3Y", "FY-3F"],
+
       // 搜索表单
       searchForm: {
         satellite: [],
@@ -341,7 +355,8 @@ export default {
         resolutionMin: null,
         resolutionMax: null,
         cloudCover: [0, 30],
-        dataTypes: []
+        keyword: "",
+        dataType: undefined
       },
 
       // 检索统计
@@ -394,6 +409,16 @@ export default {
     }
   },
   methods: {
+    toggleSatellite(model) {
+      const selected = new Set(this.searchForm.satellite)
+      if (selected.has(model)) {
+        selected.delete(model)
+      } else {
+        selected.add(model)
+      }
+      this.searchForm.satellite = Array.from(selected)
+    },
+
     async handleSearch() {
       this.loading = true
       try {
@@ -405,16 +430,34 @@ export default {
           conditions.start = this.searchForm.dateRange[0]
           conditions.end = this.searchForm.dateRange[1]
         }
-        if (this.searchForm.region?.trim()) { conditions.keyword = this.searchForm.region.trim() }
+        if (this.searchForm.region?.trim()) {
+          conditions.keyword = this.searchForm.region.trim()
+        } else if (this.searchForm.keyword?.trim()) {
+          conditions.keyword = this.searchForm.keyword.trim()
+        }
         if (this.searchForm.resolutionMin != null) { conditions.gsd_min = Number(this.searchForm.resolutionMin) }
         if (this.searchForm.resolutionMax != null) { conditions.gsd_max = Number(this.searchForm.resolutionMax) }
         conditions.limit = 100
 
         const flow = await runSearchFlow(conditions)
         this.lastStatistics = flow.statistics
-        this.searchResults = (flow.results || []).map(fromSearchFlow)
-        this.paginationConfig.total = flow.statistics?.matched ?? this.searchResults.length
-        this.searchStatistics.matchCount = flow.statistics?.matched ?? 0
+        let results = (flow.results || []).map(fromSearchFlow)
+        const keyword = this.searchForm.keyword?.trim().toLowerCase()
+        if (keyword && this.searchForm.region?.trim()) {
+          results = results.filter((record) => {
+            const text = [record.metadataId, record.title, record.satellite, record.sensor, record.catalogPath]
+              .filter(Boolean)
+              .join(" ")
+              .toLowerCase()
+            return text.includes(keyword)
+          })
+        }
+        this.searchResults = results
+        const matched = keyword && this.searchForm.region?.trim()
+          ? results.length
+          : (flow.statistics?.matched ?? results.length)
+        this.paginationConfig.total = matched
+        this.searchStatistics.matchCount = matched
         this.searchStatistics.responseTime = ((flow.statistics?.response_ms ?? 0) / 1000).toFixed(2)
         this.searchStatistics.todayQueries = (this.searchStatistics.todayQueries || 0) + 1
         // 准确率：within_5s 达标记为 100%，否则按响应比例折算（接口无 accuracy 字段）
@@ -444,7 +487,8 @@ export default {
         resolutionMin: null,
         resolutionMax: null,
         cloudCover: [0, 30],
-        dataTypes: []
+        keyword: "",
+        dataType: undefined
       }
       this.searchResults = []
       this.paginationConfig.total = 0
@@ -560,6 +604,110 @@ export default {
 
   .search-card {
     margin-bottom: 16px;
+  }
+
+  .query-primary-form {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 24px;
+
+    :deep(.ant-form-item) {
+      flex: 1 1 0;
+      min-width: 0;
+      margin-right: 0;
+      margin-bottom: 0;
+    }
+
+    :deep(.ant-form-item-row) {
+      flex-wrap: nowrap;
+      align-items: center;
+    }
+
+    :deep(.ant-form-item-label) {
+      flex: 0 0 auto;
+      padding-bottom: 0;
+    }
+
+    :deep(.ant-form-item-label > label) {
+      height: 32px;
+    }
+
+    :deep(.ant-form-item-control) {
+      flex: 1 1 auto;
+      width: auto;
+      min-width: 0;
+    }
+
+    :deep(.ant-input),
+    :deep(.ant-select),
+    :deep(.ant-picker) {
+      width: 100%;
+    }
+  }
+
+  .satellite-type-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+
+  .field-label {
+    flex: 0 0 auto;
+    line-height: 34px;
+    color: rgba(0, 0, 0, 0.88);
+  }
+
+  .satellite-model-options {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    min-width: 0;
+    overflow-x: auto;
+  }
+
+  .satellite-model-button {
+    height: 34px;
+    padding: 0 10px 0 6px;
+    border-color: #d9d9d9;
+    color: #4e5969;
+
+    :deep(.ant-checkbox) {
+      margin-right: 6px;
+    }
+
+    &.selected {
+      border-color: #1677ff;
+      background: #e8f3ff;
+      color: #0958d9;
+    }
+  }
+
+  .query-secondary-form {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 16px;
+
+    :deep(.ant-form-item) {
+      margin-right: 0;
+      margin-bottom: 0;
+    }
+
+    :deep(.ant-form-item-row) {
+      flex-wrap: nowrap;
+      align-items: center;
+    }
+
+    :deep(.ant-form-item-label) {
+      padding-bottom: 0;
+    }
+
+    :deep(.ant-form-item-label > label) {
+      height: 32px;
+    }
   }
 
   .results-card {

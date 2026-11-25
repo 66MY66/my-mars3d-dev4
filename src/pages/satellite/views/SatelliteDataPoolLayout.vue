@@ -5,14 +5,6 @@
         <div class="page-label">卫星遥感数据管理子系统 · 数据资源池管理</div>
       </div>
       <div class="header-actions">
-        <a-button type="primary" @click="showCreateDialog">
-          <PlusOutlined />
-          创建资源池
-        </a-button>
-        <a-button @click="showImportDialog">
-          <UploadOutlined />
-          数据接入
-        </a-button>
         <a-button @click="refreshData">
           <ReloadOutlined />
           刷新
@@ -415,7 +407,6 @@
 import { h } from "vue"
 import { message, Modal, Statistic, Badge } from "ant-design-vue"
 import {
-  PlusOutlined,
   UploadOutlined,
   ReloadOutlined,
   DatabaseOutlined
@@ -431,7 +422,6 @@ import { buildAccessTrend, getAccessDateRange } from "../utils/access-data"
 export default {
   name: "SatelliteDataPoolLayout",
   components: {
-    PlusOutlined,
     UploadOutlined,
     ReloadOutlined,
     DatabaseOutlined,

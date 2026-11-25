@@ -69,7 +69,10 @@
             @select="handleNodeSelect"
           >
             <template #title="node">
-              <span>{{ node.title }} <a-tag>{{ node.count || 0 }}</a-tag></span>
+              <span>
+                <FolderOutlined v-if="node.displayOnly" />
+                {{ node.title }} <a-tag>{{ node.count || 0 }}</a-tag>
+              </span>
             </template>
           </a-tree>
           </div>
@@ -84,7 +87,7 @@
           </template>
 
           <a-descriptions :column="2" bordered>
-            <a-descriptions-item label="目录ID">{{ currentCatalog.key }}</a-descriptions-item>
+            <a-descriptions-item label="目录ID">{{ currentCatalog.displayOnly ? "—" : currentCatalog.key }}</a-descriptions-item>
             <a-descriptions-item label="目录名称">{{ currentCatalog.title }}</a-descriptions-item>
             <a-descriptions-item label="层级">{{ getLevelName(currentCatalog.level) }}</a-descriptions-item>
             <a-descriptions-item label="关联元数据数">{{ currentCatalog.count || 0 }}</a-descriptions-item>
@@ -203,6 +206,7 @@ import { h } from "vue"
 import { message, Modal, Statistic, Descriptions } from "ant-design-vue"
 import {
   FolderAddOutlined,
+  FolderOutlined,
   LinkOutlined,
   ReloadOutlined,
   InfoCircleOutlined
@@ -214,6 +218,7 @@ export default {
   name: "SatelliteDataCatalogLayout",
   components: {
     FolderAddOutlined,
+    FolderOutlined,
     LinkOutlined,
     ReloadOutlined,
     InfoCircleOutlined,
@@ -304,12 +309,15 @@ export default {
       try {
         const page = await catalogApi.list({ pageNo: 1, pageSize: 1000 })
         const nodes = page.records.map(fromCatalog)
-        this.catalogTree = buildCatalogTree(nodes)
+        this.catalogTree = [...this.displayCatalogFolders(), ...buildCatalogTree(nodes)]
         this.statistics.totalCatalogs = page.total
         this.statistics.totalMetadata = nodes.reduce((sum, node) => sum + Number(node.count || 0), 0)
-        if (!this.currentCatalog && this.catalogTree[0]) {
-          this.currentCatalog = this.catalogTree[0]
-          this.selectedKeys = [this.currentCatalog.key]
+        if (!this.currentCatalog) {
+          const firstReal = this.catalogTree.find((node) => !node.displayOnly)
+          if (firstReal) {
+            this.currentCatalog = firstReal
+            this.selectedKeys = [firstReal.key]
+          }
         }
         await this.loadAssociatedMetadata(this.currentCatalog?.key)
         if (showSuccess) { message.success("数据已刷新") }
@@ -348,11 +356,37 @@ export default {
       return null
     },
 
+    displayCatalogFolders() {
+      return [
+        { key: "display-folder-received", title: "接收数据" },
+        { key: "display-folder-produced", title: "产生的数据" },
+        { key: "display-folder-managed", title: "系统管理的数据" }
+      ].map((folder) => ({
+        key: folder.key,
+        id: folder.key,
+        title: folder.title,
+        count: 0,
+        level: 1,
+        isLeaf: true,
+        displayOnly: true,
+        children: []
+      }))
+    },
+
     handleNodeSelect(selectedKeys) {
       if (selectedKeys.length > 0 && selectedKeys[0] !== "root") {
         const key = selectedKeys[0]
+        const node = this.findNodeByKey(this.catalogTree, key)
+        if (!node) {
+          return
+        }
         this.selectedKeys = selectedKeys
-        this.currentCatalog = this.findNodeByKey(this.catalogTree, key)
+        this.currentCatalog = node
+        if (node.displayOnly) {
+          this.associatedMetadata = []
+          this.paginationConfig.total = 0
+          return
+        }
         this.loadAssociatedMetadata(key)
       }
     },
@@ -360,7 +394,7 @@ export default {
     async loadAssociatedMetadata(catalogId = this.currentCatalog?.key) {
       this.associatedMetadata = []
       this.paginationConfig.total = 0
-      if (!catalogId) {
+      if (!catalogId || this.findNodeByKey(this.catalogTree, catalogId)?.displayOnly) {
         return
       }
       this.loading = true
@@ -386,7 +420,7 @@ export default {
       try {
         await this.$refs.catalogFormRef.validate()
         this.confirmLoading = true
-        const parent = this.currentCatalog
+        const parent = this.currentCatalog?.displayOnly ? null : this.currentCatalog
         await catalogApi.add(toCatalogPayload({
           ...this.catalogForm,
           parentId: parent?.id || "",
@@ -409,6 +443,10 @@ export default {
     showAssociateDialog() {
       if (!this.currentCatalog) {
         message.warning("请先选择一个目录")
+        return
+      }
+      if (this.currentCatalog.displayOnly) {
+        message.info("该目录仅用于展示列表结构")
         return
       }
       this.loadAvailableMetadata()
@@ -466,11 +504,17 @@ export default {
 
 <style scoped lang="less">
 .satellite-catalog-page {
+  box-sizing: border-box;
+  height: 100%;
+  min-height: 0;
   padding: 20px;
   background: #f0f2f5;
-  min-height: calc(100vh - 100px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 
   .content-header {
+    flex: 0 0 auto;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -494,13 +538,21 @@ export default {
     }
   }
 }
+
+.satellite-catalog-page > .ant-row:not(.catalog-main-row) {
+  flex: 0 0 auto;
+}
+
 .catalog-main-row {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-height: 0;
   align-items: stretch;
+  overflow: hidden;
 
   > .ant-col {
     display: flex;
+    min-height: 0;
+    height: 100%;
   }
 
   :deep(.ant-card) {
@@ -521,21 +573,14 @@ export default {
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    overflow-x: hidden;
-  }
-
-  :deep(.ant-col:first-child .ant-card-body) {
-    overflow: hidden;
   }
 }
 
 .catalog-tree-scroll {
-  height: 100%;
-  max-height: 100%;
-  flex: 0 0 100%;
+  flex: 1 1 0;
   min-height: 0;
-  overflow-y: auto;
   overflow-x: hidden;
+  overflow-y: auto;
   padding-right: 4px;
 }
 
@@ -551,10 +596,11 @@ export default {
 
 .metadata-section {
   min-height: 0;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   display: flex;
   flex-direction: column;
   margin-top: 0;
+  overflow: hidden;
 }
 
 .metadata-section > div:first-child {
@@ -563,21 +609,8 @@ export default {
 
 .metadata-table-scroll {
   min-height: 0;
-  flex: 1 1 auto;
+  flex: 1 1 0;
   overflow: auto;
   padding-right: 4px;
-}
-
-.satellite-catalog-page {
-  height: 100%;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.satellite-catalog-page > .content-header,
-.satellite-catalog-page > .ant-row:not(.catalog-main-row) {
-  flex: 0 0 auto;
 }
 </style>
