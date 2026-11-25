@@ -12,7 +12,13 @@
     @update:visible="emit('update:visible', $event)"
   >
     <div class="alert-panel">
-      <div class="alert-scroll">
+        <div class="alert-scroll">
+        <div v-if="cuiLink" class="cui-link-banner" data-testid="cui-alert-link">
+          <strong>{{ cuiLink.title || cuiLink.alertId }}</strong>
+          <span v-if="cuiLink.taskId">任务 {{ cuiLink.taskId }}</span>
+          <p v-if="cuiMachineText">{{ cuiMachineText }}</p>
+          <p v-if="cuiPublishBlocked">当前账号不能发布异常点</p>
+        </div>
         <div class="alert-selector">
           <div class="section-label">选择告警信息</div>
           <mars-select
@@ -104,7 +110,7 @@
         <div class="alert-footer-actions">
         <mars-button class="action-btn" type="primary" @click="runOperation">计算</mars-button>
         <mars-button data-testid="save-placeholder" class="action-btn" disabled>保存（待接入）</mars-button>
-        <mars-button class="action-btn" type="primary" :disabled="groupConfirmed" @click="confirmAlert">
+        <mars-button class="action-btn" type="primary" :disabled="groupConfirmed || cuiPublishBlocked" @click="confirmAlert">
           {{ groupConfirmed ? "整组已确认" : "确认整组告警" }}
         </mars-button>
         </div>
@@ -141,8 +147,20 @@ import {
   queryGeoAnomalyAlerts
 } from "./alert-api"
 
-const props = withDefaults(defineProps<{ visible?: boolean }>(), {
-  visible: false
+const props = withDefaults(defineProps<{
+  visible?: boolean
+  cuiLink?: {
+    alertId: string
+    title?: string
+    taskId?: string
+    panelInstanceId?: string
+    machineJudgment?: unknown
+    savedReviews?: unknown[]
+    allowedActions?: string[]
+  } | null
+}>(), {
+  visible: false,
+  cuiLink: null
 })
 
 const emit = defineEmits<{
@@ -152,6 +170,26 @@ const emit = defineEmits<{
 useLifecycle(mapWork)
 
 const { currentWidget } = useWidget()
+const cuiLink = computed(() => props.cuiLink ?? null)
+const cuiPublishBlocked = computed(() => {
+  const actions = cuiLink.value?.allowedActions
+  return Array.isArray(actions) && !actions.includes("confirm_publish")
+})
+const cuiMachineText = computed(() => {
+  const value = cuiLink.value?.machineJudgment
+  if (!value) {
+    return ""
+  }
+  if (typeof value === "string") {
+    return value
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>
+    const text = record.conclusion ?? record.summary ?? record.reason ?? record.message
+    return text == null ? "" : String(text)
+  }
+  return String(value)
+})
 
 const initialAlert = currentWidget?.data?.alertInfo as AlertInfo | undefined
 const availableAlerts = ref<AlertInfo[]>(createMockAlerts())
@@ -410,6 +448,16 @@ onMounted(async () => {
 </script>
 
 <style lang="less" scoped>
+.cui-link-banner {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 77, 79, 0.35);
+  border-radius: 8px;
+  background: rgba(255, 77, 79, 0.08);
+}
+
 .alert-panel {
   height: 100%;
   min-height: 0;

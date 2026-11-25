@@ -35,7 +35,8 @@
 </template>
 
 <script setup lang="ts">
-import { nextTick, onBeforeUnmount, ref, watch } from "vue"
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue"
+import { currentHostInit, initSatelliteBridge } from "@/cui-bridge/hostBridge"
 import { initShellBridge } from "@/cui-bridge/shellBridge"
 
 const props = defineProps<{
@@ -50,10 +51,24 @@ const emit = defineEmits<{
 const frameRef = ref<HTMLIFrameElement | null>(null)
 const hermesCommands = new Set(["route.navigate", "ui.panel.open", "ui.panel.close"])
 let disposeBridge: null | (() => void) = null
+let disposeSatelliteBridge: null | (() => void) = null
+let satelliteReady = false
+let allowedOrigin = ""
+
+function postHostInit() {
+  const target = frameRef.value?.contentWindow
+  if (!props.open || !satelliteReady || !target || !allowedOrigin) {
+    return
+  }
+  target.postMessage(currentHostInit(), allowedOrigin)
+}
 
 function disconnectBridge() {
   disposeBridge?.()
+  disposeSatelliteBridge?.()
   disposeBridge = null
+  disposeSatelliteBridge = null
+  satelliteReady = false
 }
 
 function connectBridge() {
@@ -62,13 +77,17 @@ function connectBridge() {
   if (!props.open || !targetWindow) {
     return
   }
-  let allowedOrigin: string
   try {
     allowedOrigin = new URL(props.src, window.location.href).origin
   } catch {
     return
   }
-  disposeBridge = initShellBridge(() => frameRef.value?.contentWindow ?? null, allowedOrigin, hermesCommands)
+  const getWindow = () => frameRef.value?.contentWindow ?? null
+  disposeBridge = initShellBridge(getWindow, allowedOrigin, hermesCommands)
+  disposeSatelliteBridge = initSatelliteBridge(getWindow, allowedOrigin, () => {
+    satelliteReady = true
+    postHostInit()
+  })
 }
 
 watch(
@@ -86,7 +105,20 @@ watch(
   { immediate: true }
 )
 
-onBeforeUnmount(disconnectBridge)
+function onHostContextChange() {
+  postHostInit()
+}
+
+onMounted(() => {
+  window.addEventListener("themeChange", onHostContextChange)
+  window.addEventListener("cui-host-context", onHostContextChange)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener("themeChange", onHostContextChange)
+  window.removeEventListener("cui-host-context", onHostContextChange)
+  disconnectBridge()
+})
 </script>
 
 <style scoped>

@@ -24,7 +24,7 @@ describe("shell business commands", () => {
         activate,
         disable,
         getWidget: (name: string) =>
-          ["manage-layers", "manage-basemap"].includes(name) ? { name } : null
+          ["manage-layers", "manage-basemap", "alert-confirm", "thematic-workbench"].includes(name) ? { name } : null
       }
     })
   })
@@ -76,5 +76,49 @@ describe("shell business commands", () => {
 
     expect(result).toEqual({ success: false, error: "INVALID_ARGUMENT: unsupported panel" })
     expect(activate).not.toHaveBeenCalled()
+  })
+
+  it("opens the judgment panel with the alert carried by the CUI command", async () => {
+    const result = await commandBus.execute("panel.open", {
+      name: "judgment",
+      target: "ALT-SC-001",
+      title: "九寨沟漳扎镇热红外高强异常",
+      task_id: "TSK-ALT-1",
+      allowed_actions: ["save_review"]
+    })
+
+    expect(result).toEqual({ success: true, data: { name: "judgment", target: "ALT-SC-001", state: "open" } })
+    expect(activate).toHaveBeenCalledWith(expect.objectContaining({
+      name: "alert-confirm",
+      data: { props: { cuiLink: expect.objectContaining({ alertId: "ALT-SC-001", taskId: "TSK-ALT-1" }) } }
+    }), false)
+  })
+
+  it("opens an existing cartography project with its bbox", async () => {
+    const result = await commandBus.execute("panel.open", {
+      name: "cartography",
+      project: "PRJ-1",
+      project_version: "PV1",
+      scope: { crs: "EPSG:4326", bbox: [103.4, 32.8, 104.3, 33.7] }
+    })
+
+    expect(result.success).toBe(true)
+    expect(activate).toHaveBeenCalledWith(expect.objectContaining({
+      name: "thematic-workbench",
+      data: { props: expect.objectContaining({ source: "cui", cuiProjectId: "PRJ-1", cuiProjectVersion: "PV1" }) }
+    }), false)
+  })
+
+  it("does not open a blank cartography project", async () => {
+    const result = await commandBus.execute("panel.open", { name: "cartography", scope: { bbox: [103.4, 32.8, 104.3, 33.7] } })
+
+    expect(result).toEqual({ success: false, error: "PROJECT_REQUIRED: cartography open needs an existing project" })
+    expect(activate).not.toHaveBeenCalled()
+  })
+
+  it("rejects an unsupported linkage panel", async () => {
+    const result = await commandBus.execute("panel.open", { name: "developer-console" })
+
+    expect(result).toEqual({ success: false, error: "PANEL_UNSUPPORTED" })
   })
 })

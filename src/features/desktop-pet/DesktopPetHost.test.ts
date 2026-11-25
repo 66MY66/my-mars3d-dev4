@@ -107,4 +107,37 @@ describe("DesktopPetHost", () => {
     expect(handler).toHaveBeenCalledOnce()
     expect(postSpy).toHaveBeenCalledWith(expect.objectContaining({ type: "cmd.result", requestId: "hermes-1" }), "http://192.168.10.15:6060")
   })
+
+  it("sends host.init after the embedded CUI reports ready", async () => {
+    document.documentElement.dataset.theme = "dark"
+    const wrapper = mount(DesktopPetHost, { attachTo: document.body })
+    await wrapper.get('[role="img"]').trigger("click")
+    await nextTick()
+    await nextTick()
+
+    const iframe = document.body.querySelector<HTMLIFrameElement>('iframe[title="Hermes Web UI"]')
+    const target = iframe?.contentWindow
+    const postSpy = vi.spyOn(target!, "postMessage")
+    const ready = {
+      channel: "satellite-cui",
+      version: "1.0",
+      instanceId: "cui-main",
+      type: "cui.ready",
+      payload: {}
+    }
+    const event = new MessageEvent("message", { data: ready, origin: "http://192.168.10.15:6060" })
+    Object.defineProperty(event, "source", { value: target })
+    window.dispatchEvent(event)
+    await nextTick()
+
+    expect(postSpy).toHaveBeenCalledWith(expect.objectContaining({
+      channel: "satellite-cui",
+      type: "host.init",
+      payload: expect.objectContaining({
+        theme: "dark",
+        capabilities: ["map.locate", "panel.open"],
+        context: null
+      })
+    }), "http://192.168.10.15:6060")
+  })
 })

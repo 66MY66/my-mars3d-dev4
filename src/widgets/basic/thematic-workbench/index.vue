@@ -2,7 +2,7 @@
   <mars-dialog
     ref="dialogRef"
     v-model:visible="dialogVisible"
-    title="专题制图工作台"
+    :title="dialogTitle"
     icon="workbench"
     :custom-class="dialogClass"
     :draggable="!chartPanelVisible"
@@ -2690,6 +2690,10 @@ const props = withDefaults(defineProps<{
   source?: string
   targetName?: string
   initialTab?: WorkbenchTab
+  cuiProjectId?: string
+  cuiProjectVersion?: string
+  cuiBbox?: number[]
+  cuiTaskId?: string
 }>(), {
   visible: true,
   source: "toolbar",
@@ -2958,6 +2962,15 @@ const selectionScopeLocked = ref(false)
 const selectionPurpose = ref<"chart" | "template" | "standard">("chart")
 const lockedSelection = ref<LockedSelection | null>(null)
 const selectionAreaText = ref("未框选区域")
+const cuiBbox = props.cuiBbox
+if (Array.isArray(cuiBbox) && cuiBbox.length === 4) {
+  const [west, south, east, north] = cuiBbox.map(Number)
+  if ([west, south, east, north].every((item) => Number.isFinite(item)) && west < east && south < north) {
+    lockedSelection.value = { west, south, east, north }
+    selectionScopeLocked.value = true
+    selectionAreaText.value = `CUI 范围：西${west} / 南${south} / 东${east} / 北${north}`
+  }
+}
 const chartElMap = new Map<string, HTMLDivElement>()
 const chartInstanceMap = new Map<string, echarts.ECharts>()
 const boardScale = ref(1)
@@ -3230,7 +3243,18 @@ const sourceLabel = computed(() => {
   if (props.source === "sidebar") {
     return "左侧工具栏入口"
   }
+  if (props.source === "cui") {
+    return "CUI 对话入口"
+  }
   return "工具栏入口"
+})
+const dialogTitle = computed(() => {
+  if (!props.cuiProjectId) {
+    return "专题制图工作台"
+  }
+  return props.cuiProjectVersion
+    ? `专题制图工作台 · ${props.cuiProjectId} ${props.cuiProjectVersion}`
+    : `专题制图工作台 · ${props.cuiProjectId}`
 })
 const contextDesc = computed(() => {
   return `${selectionScopeLocked.value ? "查询范围已确认" : "查询范围待确认"} · ${workflowTopic.value ? "专题已选择" : "专题待选择"}`

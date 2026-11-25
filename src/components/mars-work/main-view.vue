@@ -31,6 +31,7 @@ import { useWidgetStore } from "@mars/common/store/widget"
 import MarsMap from "@mars/components/mars-work/mars-map.vue"
 import MarsWidget from "./widget.vue"
 import { logInfo } from "@mars/utils/mars-util"
+import { setHostMap } from "@/cui-bridge/hostMap"
 
 const locale = zhCN
 
@@ -66,6 +67,7 @@ const loaded = ref(false)
 const marsOnload = (map: any) => {
   logInfo("map构造完成", map)
   mapInstance = map
+  setHostMap(map)
 
   emit("mapLoaded", mapInstance)
   loaded.value = true

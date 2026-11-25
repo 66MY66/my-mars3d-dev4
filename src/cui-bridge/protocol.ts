@@ -34,3 +34,23 @@ export type CmdResultMessage = {
 
 export type AnyBridgeMessage = AppContextMessage | CmdExecuteMessage | CmdResultMessage
 
+export const satelliteChannel = "satellite-cui" as const
+export const satelliteProtocolVersion = "1.0" as const
+export const hostInstanceId = "cui-main" as const
+export const hostProjectName = "地震预测与防震减灾卫星遥感平台" as const
+
+export type HostContext = {
+  id: string
+  label: string
+  type: "alert" | "project"
+} | null
+
+export type SatelliteEnvelope = {
+  channel: typeof satelliteChannel
+  version: typeof satelliteProtocolVersion
+  instanceId: typeof hostInstanceId
+  type: "cui.ready" | "host.init" | "cmd.execute" | "cmd.result"
+  requestId?: string
+  payload?: Record<string, unknown>
+}
+
