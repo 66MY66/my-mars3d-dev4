@@ -107,6 +107,9 @@
       <div v-if="dataListVisible.access" class="card-data-list">
         <div class="data-list-toolbar">
           <a-input-search v-model:value="dataListFilters.access.keyword" placeholder="搜索数据名称、来源" allow-clear style="width: 220px" @search="resetDataListPagination('access')" />
+          <a-select v-model:value="dataListFilters.access.source" allow-clear placeholder="数据来源" style="width: 190px" @change="resetDataListPagination('access')">
+            <a-select-option v-for="source in dataListSources" :key="source" :value="source">{{ source }}</a-select-option>
+          </a-select>
           <a-range-picker v-model:value="dataListFilters.access.dateRange" value-format="YYYY-MM-DD" :disabled-date="(date) => isDateDisabled('access', date)" @change="resetDataListPagination('access')" />
           <a-select v-model:value="dataListFilters.access.format" allow-clear placeholder="数据格式" style="width: 140px" @change="resetDataListPagination('access')">
             <a-select-option v-for="format in dataListFormats.access" :key="format" :value="format">{{ format }}</a-select-option>
@@ -166,6 +169,9 @@
       <div v-if="dataListVisible.output" class="card-data-list">
         <div class="data-list-toolbar">
           <a-input-search v-model:value="dataListFilters.output.keyword" placeholder="搜索数据名称、模块" allow-clear style="width: 220px" @search="resetDataListPagination('output')" />
+          <a-select v-model:value="dataListFilters.output.subsystem" allow-clear placeholder="所属子系统" style="width: 220px" @change="resetDataListPagination('output')">
+            <a-select-option v-for="subsystem in outputSubsystems" :key="subsystem" :value="subsystem">{{ subsystem }}</a-select-option>
+          </a-select>
           <a-range-picker v-model:value="dataListFilters.output.dateRange" value-format="YYYY-MM-DD" :disabled-date="(date) => isDateDisabled('output', date)" @change="resetDataListPagination('output')" />
           <a-select v-model:value="dataListFilters.output.format" allow-clear placeholder="数据格式" style="width: 140px" @change="resetDataListPagination('output')">
             <a-select-option v-for="format in dataListFormats.output" :key="format" :value="format">{{ format }}</a-select-option>
@@ -224,6 +230,9 @@
       <div v-if="dataListVisible.upload" class="card-data-list">
         <div class="data-list-toolbar">
           <a-input-search v-model:value="dataListFilters.upload.keyword" placeholder="搜索数据名称、来源" allow-clear style="width: 220px" @search="resetDataListPagination('upload')" />
+          <a-select v-model:value="dataListFilters.upload.interactionObject" allow-clear placeholder="交互对象" style="width: 220px" @change="resetDataListPagination('upload')">
+            <a-select-option v-for="item in interactionObjects" :key="item" :value="item">{{ item }}</a-select-option>
+          </a-select>
           <a-range-picker v-model:value="dataListFilters.upload.dateRange" value-format="YYYY-MM-DD" :disabled-date="(date) => isDateDisabled('upload', date)" @change="resetDataListPagination('upload')" />
           <a-select v-model:value="dataListFilters.upload.format" allow-clear placeholder="数据格式" style="width: 140px" @change="resetDataListPagination('upload')">
             <a-select-option v-for="format in dataListFormats.upload" :key="format" :value="format">{{ format }}</a-select-option>
@@ -461,7 +470,7 @@ export default {
         ],
         output: [
           { title: "数据名称", dataIndex: "name", key: "name", ellipsis: true },
-          { title: "产出的子系统名称", dataIndex: "module", key: "module" },
+          { title: "所属子系统", dataIndex: "module", key: "module" },
           { title: "产出时间", dataIndex: "time", key: "time" },
           { title: "数据格式", dataIndex: "format", key: "format", ellipsis: true },
           { title: "是否发布", dataIndex: "sent", key: "sent" },
@@ -470,6 +479,7 @@ export default {
         upload: [
           { title: "数据名称", dataIndex: "name", key: "name", ellipsis: true },
           { title: "产出来源", dataIndex: "source", key: "source" },
+          { title: "交互对象", dataIndex: "interactionObject", key: "interactionObject" },
           { title: "上传时间", dataIndex: "time", key: "time" },
           { title: "文件大小", dataIndex: "size", key: "size" },
           { title: "上传状态", dataIndex: "status", key: "status" },
@@ -477,10 +487,13 @@ export default {
         ]
       },
       dataListFilters: {
-        access: { keyword: "", dateRange: null, format: undefined },
-        output: { keyword: "", dateRange: null, format: undefined },
-        upload: { keyword: "", dateRange: null, format: undefined }
+        access: { keyword: "", source: undefined, dateRange: null, format: undefined },
+        output: { keyword: "", subsystem: undefined, dateRange: null, format: undefined },
+        upload: { keyword: "", interactionObject: undefined, dateRange: null, format: undefined }
       },
+      dataListSources: ["卫星地面站", "数据接收质控管理软件", "运行支撑与管理调度软件"],
+      outputSubsystems: ["地面站子系统", "风险监测子系统", "损失评估子系统", "中短期宏观异常监测子系统"],
+      interactionObjects: ["卫星地面站", "数据接收质控管理软件", "运行支撑与管理调度软件"],
       dataListFormats: {
         access: ["GeoTIFF", "JSON", "NetCDF"],
         output: ["GeoTIFF", "JSON", "PDF"],
@@ -505,24 +518,24 @@ export default {
         },
         output: {
           month: [
-            { id: "output-m-1", name: "卫星遥感标准数据", module: "标准产品模块", time: "2026-11-23 10:05", content: "标准化遥感影像", format: "GeoTIFF", sent: "是" },
-            { id: "output-m-2", name: "风险监测成果", module: "风险监测模块", time: "2026-11-22 18:40", content: "风险指数栅格", format: "GeoTIFF", sent: "是" },
-            { id: "output-m-3", name: "评估报告", module: "综合评估模块", time: "2026-11-19 15:12", content: "评估报告文档", format: "PDF", sent: "否" }
+            { id: "output-m-1", name: "卫星遥感标准数据", module: "地面站子系统", time: "2026-11-23 10:05", content: "标准化遥感影像", format: "GeoTIFF", sent: "是" },
+            { id: "output-m-2", name: "风险监测成果", module: "风险监测子系统", time: "2026-11-22 18:40", content: "风险指数栅格", format: "GeoTIFF", sent: "是" },
+            { id: "output-m-3", name: "评估报告", module: "损失评估子系统", time: "2026-11-19 15:12", content: "评估报告文档", format: "PDF", sent: "否" }
           ],
           week: [
-            { id: "output-w-1", name: "卫星遥感标准数据", module: "标准产品模块", time: "2026-11-23 10:05", content: "标准化遥感影像", format: "GeoTIFF", sent: "是" },
-            { id: "output-w-2", name: "异常监测成果", module: "异常监测模块", time: "2026-11-21 09:18", content: "异常点位数据", format: "JSON", sent: "是" }
+            { id: "output-w-1", name: "卫星遥感标准数据", module: "地面站子系统", time: "2026-11-23 10:05", content: "标准化遥感影像", format: "GeoTIFF", sent: "是" },
+            { id: "output-w-2", name: "异常监测成果", module: "中短期宏观异常监测子系统", time: "2026-11-21 09:18", content: "异常点位数据", format: "JSON", sent: "是" }
           ]
         },
         upload: {
           month: [
-            { id: "upload-m-1", name: "卫星遥感标准数据", source: "标准产品模块", time: "2026-11-23 10:20", size: "128 MB", format: "GeoTIFF", status: "上传成功" },
-            { id: "upload-m-2", name: "评估报告", source: "综合评估模块", time: "2026-11-22 17:05", size: "8 MB", format: "PDF", status: "上传成功" },
-            { id: "upload-m-3", name: "风险监测成果", source: "风险监测模块", time: "2026-11-20 13:50", size: "64 MB", format: "JSON", status: "上传失败" }
+            { id: "upload-m-1", name: "卫星遥感标准数据", source: "标准产品模块", interactionObject: "卫星地面站", time: "2026-11-23 10:20", size: "128 MB", format: "GeoTIFF", status: "上传成功" },
+            { id: "upload-m-2", name: "评估报告", source: "综合评估模块", interactionObject: "数据接收质控管理软件", time: "2026-11-22 17:05", size: "8 MB", format: "PDF", status: "上传成功" },
+            { id: "upload-m-3", name: "风险监测成果", source: "风险监测模块", interactionObject: "运行支撑与管理调度软件", time: "2026-11-20 13:50", size: "64 MB", format: "JSON", status: "上传失败" }
           ],
           week: [
-            { id: "upload-w-1", name: "卫星遥感标准数据", source: "标准产品模块", time: "2026-11-23 10:20", size: "128 MB", format: "GeoTIFF", status: "上传成功" },
-            { id: "upload-w-2", name: "异常监测成果", source: "异常监测模块", time: "2026-11-21 09:30", size: "32 MB", format: "JSON", status: "上传成功" }
+            { id: "upload-w-1", name: "卫星遥感标准数据", source: "标准产品模块", interactionObject: "卫星地面站", time: "2026-11-23 10:20", size: "128 MB", format: "GeoTIFF", status: "上传成功" },
+            { id: "upload-w-2", name: "异常监测成果", source: "异常监测模块", interactionObject: "运行支撑与管理调度软件", time: "2026-11-21 09:30", size: "32 MB", format: "JSON", status: "上传成功" }
           ]
         }
       },
@@ -687,6 +700,9 @@ export default {
         result[cardKey] = this.currentDataList[cardKey].filter((record) => {
           const searchable = Object.values(record).join(" ").toLowerCase()
           if (keyword && !searchable.includes(keyword)) { return false }
+          if (filters.source && record.source !== filters.source) { return false }
+          if (filters.subsystem && record.module !== filters.subsystem) { return false }
+          if (filters.interactionObject && record.interactionObject !== filters.interactionObject) { return false }
           if (filters.format && record.format !== filters.format) { return false }
           const recordDate = dayjs(record.time)
           if (start && recordDate.isBefore(dayjs(start), "day")) { return false }
@@ -808,6 +824,10 @@ export default {
     },
 
     showDataDetail(cardKey, record) {
+      if (cardKey === "output") {
+        this.showOutputDetail(record)
+        return
+      }
       const labels = {
         access: "接入数据详情",
         output: "产出数据详情",
@@ -816,12 +836,69 @@ export default {
       const fields = Object.entries(record).filter(([key]) => key !== "id")
       Modal.info({
         title: labels[cardKey],
-        width: 460,
+        width: cardKey === "output" ? 820 : 560,
+        okText: "关闭",
         /*
         content: () => h("div", { class: "data-detail-modal" }, fields.map(([key, value]) => h("p", [h("strong", `${key}：`), String(value ?? "-\")])))
       })
         */
-        content: () => h("div", { class: "data-detail-modal" }, fields.map(([key, value]) => h("p", [h("strong", String(key) + ": "), String(value ?? "-")])))
+        content: () => h("div", { class: ["data-detail-modal", cardKey === "output" ? "data-detail-modal--output" : ""] }, [
+          cardKey === "output"
+            ? h("div", { class: "data-detail-preview" }, [
+                h("div", { class: "data-detail-preview-icon" }, "预览图"),
+                h("span", "图像预览占位")
+              ])
+            : null,
+          h("div", { class: "data-detail-fields" }, fields.map(([key, value]) =>
+            h("p", { key }, [h("strong", `${key}：`), String(value ?? "-")])
+          ))
+        ])
+      })
+    },
+
+    showOutputDetail(record) {
+      const fields = Object.entries(record).filter(([key]) => key !== "id")
+      Modal.info({
+        title: "产出情况详情",
+        width: 820,
+        okText: "关闭",
+        content: () => h("div", {
+          style: {
+            display: "grid",
+            gridTemplateColumns: "280px minmax(0, 1fr)",
+            gap: "20px",
+            alignItems: "stretch",
+            width: "100%"
+          }
+        }, [
+          h("div", {
+            "aria-label": "预览图占位区域",
+            style: {
+              minHeight: "250px",
+              border: "1px solid #d9e2ef",
+              borderRadius: "8px",
+              background: "#eef4fb",
+              color: "#8a97a8",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              textAlign: "center",
+              fontSize: "14px"
+            }
+          }),
+          h("div", {
+            style: {
+              maxHeight: "300px",
+              overflowY: "auto",
+              paddingRight: "10px",
+              minWidth: "0",
+              color: "#1d2129"
+            }
+          }, fields.map(([key, value]) => h("p", {
+            key,
+            style: { margin: "0 0 12px", lineHeight: "1.6", wordBreak: "break-word" }
+          }, [h("strong", { style: { marginRight: "6px" } }, `${key}：`), String(value ?? "-")])))
+        ])
       })
     },
 
@@ -1567,7 +1644,7 @@ export default {
       color: #1d2129;
     }
 
-    .card-data-list {
+  .card-data-list {
       margin-top: 18px;
       padding-top: 14px;
       border-top: 1px solid #f0f0f0;
@@ -1582,6 +1659,59 @@ export default {
       :deep(.ant-table-wrapper) {
         width: 100%;
       }
+    }
+  }
+
+  :global(.data-detail-modal) {
+    color: #1d2129;
+
+    p {
+      margin: 0 0 10px;
+      line-height: 1.6;
+      word-break: break-word;
+    }
+  }
+
+  :global(.data-detail-modal--output) {
+    display: grid;
+    grid-template-columns: 280px minmax(0, 1fr);
+    gap: 20px;
+    align-items: stretch;
+
+    .data-detail-preview {
+      min-height: 250px;
+      border: 1px dashed #b7c3d4;
+      border-radius: 8px;
+      background: #f7f9fc;
+      color: #86909c;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .data-detail-preview-icon {
+      width: 64px;
+      height: 64px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: #e8f3ff;
+      color: #1677ff;
+      font-size: 13px;
+    }
+
+    .data-detail-fields {
+      max-height: 300px;
+      overflow-y: auto;
+      padding-right: 8px;
+    }
+  }
+
+  @media (max-width: 640px) {
+    :global(.data-detail-modal--output) {
+      grid-template-columns: 1fr;
     }
   }
 

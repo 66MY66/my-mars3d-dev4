@@ -19,25 +19,22 @@
     <!-- 搜索过滤 -->
     <a-card :bordered="false" class="filter-card">
       <a-form layout="inline">
-        <a-form-item label="卫星型号">
-          <a-select
-            v-model:value="filters.satellite"
-            placeholder="全部"
-            style="width: 150px"
-            allow-clear
-          >
-            <a-select-option value="GF-1">GF-1</a-select-option>
-            <a-select-option value="GF-6">GF-6</a-select-option>
-            <a-select-option value="Sentinel-1">Sentinel-1</a-select-option>
-            <a-select-option value="Sentinel-2">Sentinel-2</a-select-option>
-            <a-select-option value="Landsat-8">Landsat-8</a-select-option>
-            <a-select-option value="AQUA">AQUA</a-select-option>
-            <a-select-option value="NOAA-20">NOAA-20</a-select-option>
-            <a-select-option value="SUOMI-NPP">SUOMI-NPP</a-select-option>
-            <a-select-option value="FY-3D">FY-3D</a-select-option>
-            <a-select-option value="FY-3Y">FY-3Y</a-select-option>
-            <a-select-option value="FY-3F">FY-3F</a-select-option>
-          </a-select>
+        <a-form-item label="卫星型号搜索">
+          <a-input v-model:value="satelliteSearch" placeholder="搜索卫星型号" allow-clear style="width: 180px" />
+        </a-form-item>
+        <a-form-item label="卫星型号" class="satellite-model-filter-item">
+          <div class="satellite-model-options">
+            <a-button
+              v-for="model in filteredSatelliteModels"
+              :key="model"
+              type="default"
+              :class="['satellite-model-button', { selected: filters.satellites.includes(model) }]"
+              @click="toggleSatellite(model)"
+            >
+              <a-checkbox :checked="filters.satellites.includes(model)" @click.stop="toggleSatellite(model)" />
+              <span>{{ model }}</span>
+            </a-button>
+          </div>
         </a-form-item>
         <a-form-item label="数据类型">
           <a-select
@@ -170,10 +167,12 @@ export default {
 
       // 过滤条件
       filters: {
-        satellite: undefined,
+        satellites: [],
         dataType: undefined,
         dateRange: []
       },
+      satelliteSearch: "",
+      satelliteModels: ["GF-1", "GF-6", "Sentinel-1", "Sentinel-2", "Landsat-8", "AQUA", "NOAA-20", "SUOMI-NPP", "FY-3D", "FY-3Y", "FY-3F"],
 
       // 元数据列表
       metadataList: [],
@@ -216,6 +215,12 @@ export default {
       }
     }
   },
+  computed: {
+    filteredSatelliteModels() {
+      const keyword = this.satelliteSearch.trim().toLowerCase()
+      return this.satelliteModels.filter((model) => !keyword || model.toLowerCase().includes(keyword))
+    }
+  },
   mounted() {
     this.loadMetadata()
   },
@@ -225,13 +230,17 @@ export default {
       try {
         const page = await metadataApi.list({
           pageNo: this.paginationConfig.current,
-          pageSize: this.paginationConfig.pageSize,
-          satellite: this.filters.satellite,
+          pageSize: 1000,
           dataType: this.filters.dataType,
           dateRange: this.filters.dateRange
         })
-        this.metadataList = page.records
-        this.paginationConfig.total = page.total
+        const selected = this.filters.satellites
+        const records = selected.length
+          ? page.records.filter((record) => selected.includes(String(record.satellite)))
+          : page.records
+        this.paginationConfig.total = records.length
+        const start = (this.paginationConfig.current - 1) * this.paginationConfig.pageSize
+        this.metadataList = records.slice(start, start + this.paginationConfig.pageSize)
         if (showSuccess) { message.success("数据已刷新") }
       } catch (error) {
         message.error(error instanceof Error ? error.message : "元数据加载失败")
@@ -250,10 +259,23 @@ export default {
 
     resetFilters() {
       this.filters = {
-        satellite: undefined,
+        satellites: [],
         dataType: undefined,
         dateRange: []
       }
+      this.satelliteSearch = ""
+      this.paginationConfig.current = 1
+      this.loadMetadata()
+    },
+
+    toggleSatellite(model) {
+      const selected = new Set(this.filters.satellites)
+      if (selected.has(model)) {
+        selected.delete(model)
+      } else {
+        selected.add(model)
+      }
+      this.filters.satellites = Array.from(selected)
       this.paginationConfig.current = 1
       this.loadMetadata()
     },
@@ -377,6 +399,42 @@ export default {
 
   .filter-card {
     margin-bottom: 16px;
+
+    :deep(.ant-form-inline) {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .satellite-model-filter-item {
+      flex-basis: 100%;
+      margin-top: 8px;
+      order: 10;
+    }
+
+    .satellite-model-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      max-width: 100%;
+    }
+
+    .satellite-model-button {
+      height: 34px;
+      padding: 0 10px 0 6px;
+      border-color: #d9d9d9;
+      color: #4e5969;
+
+      :deep(.ant-checkbox) {
+        margin-right: 6px;
+      }
+
+      &.selected {
+        border-color: #1677ff;
+        background: #e8f3ff;
+        color: #0958d9;
+      }
+    }
   }
 
   .table-card {
