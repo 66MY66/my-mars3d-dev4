@@ -877,13 +877,13 @@ export function removeLayer(id: string) {
   }
 }
 
-export function removeLayersByPid(rootPid: string | number): void {
+export function listLayerIdsByPid(rootPid: string | number): string[] {
   if (!map) {
-    return
+    return []
   }
   const root = String(rootPid ?? "").trim()
   if (!root) {
-    return
+    return []
   }
   const layers: any[] = map.getLayers({ basemaps: false }) || []
   const pidById = new Map<string, string>()
@@ -916,6 +916,34 @@ export function removeLayersByPid(rootPid: string | number): void {
       }
     }
   }
+  return Array.from(toRemove)
+}
+
+export function listImportedLayerIds(groupId?: string, prefix?: string): string[] {
+  const ids = new Set<string>()
+  const root = String(groupId || "").trim()
+  if (root) {
+    ids.add(root)
+    listLayerIdsByPid(root).forEach((id) => ids.add(id))
+  }
+  const layerPrefix = String(prefix || "")
+  if (layerPrefix && map) {
+    const layers: any[] = map.getLayers({ basemaps: false }) || []
+    layers.forEach((layer: any) => {
+      const id = String(layer?.id || "")
+      if (id.startsWith(layerPrefix)) {
+        ids.add(id)
+      }
+    })
+  }
+  return Array.from(ids)
+}
+
+export function removeLayersByPid(rootPid: string | number): void {
+  if (!map) {
+    return
+  }
+  const toRemove = listLayerIdsByPid(rootPid)
 
   toRemove.forEach((id) => {
     const layer = map.getLayerById(id as any)

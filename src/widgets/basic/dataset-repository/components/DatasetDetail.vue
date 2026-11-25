@@ -431,6 +431,8 @@ import { StacCollection, StacItem, StacAsset, DatasetVisibility, Manifest, Artif
 import { restoreWorkspace, clearRestoredContent } from "../workspace/restore"
 import { precheckRestore, RestoreStrategy, ConflictResolution } from "../workspace/strategies"
 import * as mapWork from "../map"
+import { forgetPersistedLayerUiState } from "../../manage-layers/layer-ui-state"
+import { removePersistedSession } from "../../current-task/map"
 import LineagePanel from "./LineagePanel.vue"
 import { downloadDatasetZip } from "../utils/zip-export"
 import { clearCurrentDataset, setCurrentDataset } from "@/shell/currentDataset"
@@ -457,6 +459,7 @@ import { watchFile } from "../services/file-watch"
 import { refreshMetadata, registerMetadataRefresher } from "../services/metadata-refresh"
 import { classifyLayer, DEFAULT_GROUP } from "../services/layer-classifier"
 import { categorizeLayersForImport } from "../services/import-layer-categorizer"
+import { applyImportLayerVisibility } from "../services/import-layer-visibility"
 import { loadResultFile } from "../services/result-loader"
 import { validateResultFile } from "../services/result-loader-utils"
 import { MAX_LAYERS, assertLayerCapacity, countManifestLayers } from "../services/layer-constraints"
@@ -2104,6 +2107,9 @@ async function handleClearImport() {
   }
   let deletedArtifacts = 0
   for (const gid of groupIds) {
+    dropImportedLayerHistory(gid, gid === lastResultGroupId.value ? lastResultPrefix.value : "")
+  }
+  for (const gid of groupIds) {
     const res = await clearImportSession(gid, { datasetId, clearArtifacts: true }).catch(() => null)
     if (res?.success && res.data) {
       deletedArtifacts += Number(res.data.deletedArtifactCount || 0)
@@ -2723,34 +2729,6 @@ async function resolveImportManifest(
   return { error: manifestRes.message || "无法获取成果包(manifest)" }
 }
 
-function pickLayersById(layers: any[], keepIds: string[]): any[] {
-  const list = Array.isArray(layers) ? layers : []
-  const keep = new Set<string>((keepIds || []).map(String))
-  if (keep.size === 0) {
-    return list
-  }
-  // 构建 id -> pid 映射
-  const idToPid = new Map<string, string>()
-  const idToLayer = new Map<string, any>()
-  for (const l of list) {
-    const id = String((l as any)?.id || "")
-    if (!id) { continue }
-    idToLayer.set(id, l)
-    const pid = String((l as any)?.pid || "")
-    if (pid) { idToPid.set(id, pid) }
-  }
-  // 从每个选中的叶子向上追溯，收集所有祖先 group
-  const result = new Set<string>()
-  for (const id of keep) {
-    let cur = id
-    for (let i = 0; i < 20 && cur; i++) {
-      result.add(cur)
-      cur = idToPid.get(cur) || ""
-    }
-  }
-  return list.filter((l) => result.has(String((l as any)?.id || "")))
-}
-
 async function handleImportSubmit(payload: ImportPayload) {
   // #region debug-point current-task-import-submit
   dbg("info", "current-task-import.dialog", "handleImportSubmit(start)", {
@@ -2960,7 +2938,8 @@ async function handleImportSubmit(payload: ImportPayload) {
     const prefix = buildDatasetImportLayerPrefix(datasetId, openedAt)
 
     const manifestRaw = normalizeManifestForTimeMode(resolved.manifest, payload.timeMode)
-    const pickedLayers = pickLayersById((manifestRaw as any)?.layers || [], payload.layerIds || [])
+    const selectedLayerIds = Array.isArray(payload.layerIds) ? payload.layerIds : null
+    const pickedLayers = applyImportLayerVisibility((manifestRaw as any)?.layers || [], selectedLayerIds)
     const categorizedLayers = categorizeLayersForImport(pickedLayers, `${datasetId}_${openedAt}`)
     const sourceMeta: SourceRegistryMeta = {
       key: buildRevisionImportSourceKey(datasetId, resolved.revisionId, payload.timeMode, payload.layerIds || []),
@@ -3056,6 +3035,18 @@ async function handleImportSubmit(payload: ImportPayload) {
   }
 }
 
+function dropImportedLayerHistory(groupId?: string, prefix?: string) {
+  const ids = mapWork.listImportedLayerIds(groupId, prefix)
+  if (ids.length) {
+    forgetPersistedLayerUiState(ids)
+    window.dispatchEvent(new CustomEvent("mars3d:forget-layer-ui-state", { detail: { ids } }))
+  }
+  const rootId = String(groupId || "").trim()
+  if (rootId) {
+    removePersistedSession(rootId)
+  }
+}
+
 async function handleUndoImport() {
   const snapshot = importSnapshotManifest.value
   if (!snapshot) {
@@ -3070,6 +3061,7 @@ async function handleUndoImport() {
   }
   // 关闭导入成功提示条
   showImportToast.value = false
+  dropImportedLayerHistory(lastResultGroupId.value, lastResultPrefix.value)
   let undoMode: "remote" | "local-only" = "remote"
   try {
     const datasetId = collection.value?.id || props.collectionId

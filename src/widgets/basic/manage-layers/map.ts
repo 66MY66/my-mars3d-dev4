@@ -25,15 +25,42 @@ export function getLayrsTree(params) {
 }
 
 export function getLayerById(id) {
-  if (!map) {
+  if (!map || id === undefined || id === null || id === "") {
     return null
   }
+  const direct = lookupLayerById(id)
+  if (direct) {
+    return direct
+  }
+  const wanted = String(id)
+  const layers = typeof map.getLayers === "function" ? map.getLayers({ childs: true }) || [] : []
+  for (const layer of layers) {
+    if (layer && String(layer.id) === wanted) {
+      return layer
+    }
+    const nested = layer?.arrLayer
+    if (!Array.isArray(nested)) {
+      continue
+    }
+    const child = nested.find((item) => item && String(item.id) === wanted)
+    if (child) {
+      return child
+    }
+  }
+  return null
+}
+
+function lookupLayerById(id) {
   const direct = map.getLayerById(id)
   if (direct) {
     return direct
   }
   if (typeof id === "string") {
-    const n = Number(id)
+    const text = id.trim()
+    if (!text) {
+      return null
+    }
+    const n = Number(text)
     if (!Number.isNaN(n)) {
       return map.getLayerById(n)
     }

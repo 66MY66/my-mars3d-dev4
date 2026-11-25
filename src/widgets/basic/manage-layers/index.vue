@@ -41,10 +41,11 @@
           block-node
           class="layer-tree"
           checkable
+          check-strictly
           :show-line="{ showLeafIcon: false }"
           :tree-data="treeData"
           v-model:expandedKeys="expandedKeys"
-          v-model:checkedKeys="checkedKeys"
+          :checked-keys="checkedKeys"
           v-model:selectedKeys="selectedKeys"
           @check="checkedChange"
         >
@@ -218,6 +219,7 @@
 import { computed, nextTick, onUnmounted, ref, onMounted, watch, useAttrs } from "vue"
 import useLifecycle from "@mars/common/uses/use-lifecycle"
 import * as mapWork from "./map"
+import { checkedKeysForLayerTree, descendantLeafKeys, mergeCheckedKeysWithVisibleLayers, treeNodeLayerKey } from "./checked-keys"
 import { useWidget } from "@mars/common/store/widget"
 import { logInfo } from "@mars/utils/mars-util"
 import { isRetiredLayerMenuEntry } from "@/config/retired-layers"
@@ -1114,6 +1116,14 @@ function savePersistedState() {
   }
 }
 
+function onForgetLayerUiState(event: Event) {
+  const ids = (event as CustomEvent).detail?.ids
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return
+  }
+  cleanupDeletedNodeState(ids)
+}
+
 function cleanupDeletedNodeState(ids: Array<string | number>) {
   const normalized = new Set(ids.map((id) => normalizeKey(id)))
   checkedKeys.value = checkedKeys.value.filter((id) => !normalized.has(normalizeKey(id)))
@@ -1566,18 +1576,23 @@ function ensureNodeUnlocked(node: any, operation: string): boolean {
   return false
 }
 
+function isGroupLayer(layer: any): boolean {
+  const type = String(layer?.type || layer?.options?.type || "").toLowerCase()
+  return type === "group"
+}
+
 // 应用显隐状态到图层（不触发飞到）
 function applyCheckedToLayers(checkedIds: string[]) {
   checkedIds.forEach((id) => {
     const layer = mapWork.getLayerById(id)
-    if (layer && !isBasemapLayer(layer) && !isRetiredLayerMenuEntry(layer, mapWork.getLayerById)) {
+    if (layer && !isGroupLayer(layer) && !isBasemapLayer(layer) && !isRetiredLayerMenuEntry(layer, mapWork.getLayerById)) {
       mapWork.updateLayerShowOnly(layer, true)
     }
   })
-  // 关闭未勾选的图层（排除底图图层，底图由 manage-basemap 单独管理）
+  // 关闭未勾选的图层（排除底图和分组；分组保持存在，显隐由具体图层决定）
   const allLayers = mapWork.getAllLayers()
   allLayers.forEach((layer) => {
-    if (layer.id && layer.hasOpacity !== undefined && !checkedIds.includes(String(layer.id)) && !isBasemapLayer(layer) && !isRetiredLayerMenuEntry(layer, mapWork.getLayerById)) {
+    if (layer.id && layer.hasOpacity !== undefined && !isGroupLayer(layer) && !checkedIds.includes(String(layer.id)) && !isBasemapLayer(layer) && !isRetiredLayerMenuEntry(layer, mapWork.getLayerById)) {
       mapWork.updateLayerShowOnly(layer, false)
     }
   })
@@ -1612,6 +1627,7 @@ onMounted(() => {
     }
   })
   loadDirectoryLocks().catch(() => {})
+  window.addEventListener("mars3d:forget-layer-ui-state", onForgetLayerUiState)
   initTree()
   nextTick(() => {
     applyFocusFromWidgetData()
@@ -1628,6 +1644,7 @@ watch(
 )
 
 onUnmounted(() => {
+  window.removeEventListener("mars3d:forget-layer-ui-state", onForgetLayerUiState)
   cleanupLayerDragSession()
   disposeDatasetChange?.()
   disposeDatasetChange = null
@@ -1731,7 +1748,9 @@ function initTree() {
       return !isRetiredLayerMenuEntry(layer, mapWork.getLayerById)
     },
     forEach: function (item, layer) {
-      item.key = String(item.id) // 树控件api需要的唯一标识
+      const layerKey = String(layer?.id ?? item.id)
+      item.layerId = layerKey
+      item.key = layerKey // 树控件 api 需要的唯一标识，必须和地图图层 id 相同
       item.title = item.name || `未命名(${layer.type})` // 树控件api需要的显示文本字段
 
       item.hasZIndex = layer.hasZIndex // 当前vue绑定使用的属性
@@ -1774,18 +1793,22 @@ function initTree() {
   fullTree.value = wrappedTree
   treeData.value = wrappedTree
 
-  // 尝试恢复持久化状态
+  // 旧勾选记录只补充当前画面，不能把正在显示的图层关掉。
+  // 勾选 key 同时从树节点回读，避免分组父节点把已经显示的叶子勾选丢掉。
   const persisted = loadPersistedState()
-  if (Array.isArray(persisted.checkedKeys)) {
-    // 有持久化数据，恢复状态
-    checkedKeys.value = persisted.checkedKeys
-    // 应用显隐状态到图层
-    applyCheckedToLayers(persisted.checkedKeys)
-  } else {
-    // 无持久化数据，使用默认状态
-    checkedKeys.value = []
-    applyCheckedToLayers([])
-  }
+  const controllableLayers = mapWork.getAllLayers().filter((layer: any) =>
+    layer?.hasOpacity !== undefined && !isGroupLayer(layer) && !isBasemapLayer(layer) && !isRetiredLayerMenuEntry(layer, mapWork.getLayerById)
+  )
+  const fromLayers = mergeCheckedKeysWithVisibleLayers(persisted.checkedKeys, controllableLayers)
+  const fromTree = checkedKeysForLayerTree(wrappedTree, persisted.checkedKeys, (node) => {
+    const layer = mapWork.getLayerById(treeNodeLayerKey(node))
+    if (!layer || isGroupLayer(layer) || isBasemapLayer(layer) || isRetiredLayerMenuEntry(layer, mapWork.getLayerById)) {
+      return false
+    }
+    return layer.show !== false
+  })
+  checkedKeys.value = Array.from(new Set([...fromLayers, ...fromTree]))
+  applyCheckedToLayers(checkedKeys.value)
 
   if (persisted.expandedKeys) {
     expandedKeys.value = persisted.expandedKeys
@@ -1833,21 +1856,28 @@ function isBasemapLayer(layer: any): boolean {
   if (!layer) {
     return false
   }
-  if (basemapNodeIdSet.has(String(layer.id))) {
-    return true
-  }
+  const seen = new Set<string>()
   let cur: any = layer
   for (let i = 0; i < 10 && cur; i++) {
+    const id = String(cur.id ?? "")
+    if (id && (basemapNodeIdSet.has(id) || cur._isBasemap === true || cur.isBasemap === true)) {
+      return true
+    }
     const pid = cur.pid ?? cur.options?.pid
-    if (pid === 10 || pid === 11) {
+    if (pid === 10 || pid === 11 || pid === "10" || pid === "11") {
       return true
     }
-    if (cur._isBasemap === true) {
+    const pidText = String(pid ?? "")
+    if (!pidText || seen.has(pidText)) {
+      return false
+    }
+    seen.add(pidText)
+    if (basemapNodeIdSet.has(pidText)) {
       return true
     }
-    cur = cur._parent || cur.parent || cur._parentLayer || cur.options?.parent || cur.options?._parent
+    cur = mapWork.getLayerById(pidText)
   }
-  return basemapNodeIdSet.has(String(layer.id))
+  return false
 }
 
 // 防止递归勾选处理中的重复渲染
@@ -1868,30 +1898,59 @@ function checkedChange(keys: string[], e: any) {
   }
 }
 
-// 实际的勾选处理逻辑
-function processCheckedChange(keys: string[], e: any) {
-  const layer = mapWork.getLayerById(e.node?.key)
+function resolveCheckedNode(node: any) {
+  const key = treeNodeLayerKey(node) || treeNodeLayerKey(node?.dataRef) || treeNodeLayerKey(node?.data)
+  if (key) {
+    const fromTree = findTreeNodeByKey(fullTree.value, key)
+    if (fromTree) {
+      return fromTree
+    }
+  }
+  return node?.dataRef || node?.data || node || {}
+}
 
-  if (layer) {
-    // 跳过底图图层（已禁用）或禁用节点
-    if (e.node?.disabled || isBasemapLayer(layer)) {
+function layerShouldShow(id: string, explicit: boolean | null, keyList: string[]): boolean {
+  if (explicit !== null) {
+    return explicit
+  }
+  return keyList.includes(id)
+}
+
+// 实际的勾选处理逻辑
+function processCheckedChange(keys: unknown, e: any) {
+  const rawNode = e?.node || {}
+  if (rawNode.disabled || rawNode.isBasemap) {
+    return
+  }
+
+  const source = resolveCheckedNode(rawNode)
+  const targetKeys = descendantLeafKeys(source)
+  const explicit = typeof e?.checked === "boolean" ? e.checked : null
+  const keyList = Array.isArray(keys) ? keys.map((id) => String(id)) : checkedKeys.value.map((id) => String(id))
+  const clickedKey = treeNodeLayerKey(source)
+
+  targetKeys.forEach((id) => {
+    const layer = mapWork.getLayerById(id)
+    if (!layer || isGroupLayer(layer) || isBasemapLayer(layer) || isRetiredLayerMenuEntry(layer, mapWork.getLayerById)) {
       return
     }
 
-    const show = keys.indexOf(e.node.key) !== -1
-    // 使用不触发飞到的显隐控制
+    const show = layerShouldShow(id, explicit, keyList)
     mapWork.updateLayerShowOnly(layer, show)
     if (!show) {
       closePropsIfTiedImageryHidden(layer.id)
     }
-    if (show && layer.hasOpacity && !Number.isFinite(Number(opacityValue.value[e.node.key]))) {
-      opacityValue.value[e.node.key] = Number.isFinite(Number(layer.opacity)) ? Number(layer.opacity) : 1
+    if (show && layer.hasOpacity && !Number.isFinite(Number(opacityValue.value[id]))) {
+      opacityValue.value[id] = Number.isFinite(Number(layer.opacity)) ? Number(layer.opacity) : 1
+    }
+
+    if (id !== clickedKey) {
+      return
     }
 
     // 特殊处理同目录下的单选的互斥的节点，可在config对应图层节点中配置"radio":true即可
-    if (layer.options?.radio && e.checked) {
-      // 循环所有的图层
-      const layersM = mapWork.getLayerByAttr(layer.pid, "pid") // 与当前操作的图层的pid相同的图层
+    if (layer.options?.radio && show) {
+      const layersM = mapWork.getLayerByAttr(layer.pid, "pid")
       for (let index = 0; index < layersM.length; index++) {
         const layerTemp = layersM[index]
         checkedKeys.value.forEach((key, idx) => {
@@ -1903,9 +1962,8 @@ function processCheckedChange(keys: string[], e: any) {
       }
     }
 
-    // 处理图层的关联事件
     if (layer.options?.onWidget) {
-      if (e.checked) {
+      if (show) {
         if (lastWidget) {
           disable(lastWidget)
         }
@@ -1918,21 +1976,23 @@ function processCheckedChange(keys: string[], e: any) {
       }
     }
 
-    // 处理图层构件树控件
     if (layer.options?.scenetree) {
       initSceneTree(layer)
     }
-  }
+  })
 
-  // 处理子节点（跳过禁用和底图的子图层）
-  if (e.node.children && e.node.children.length) {
-    e.node.children.forEach((child) => {
-      // 跳过禁用节点（底图及其子图层）
-      if (!child.disabled && !child.isBasemap) {
-        processCheckedChange(keys, { node: child, checked: e.checked })
-      }
-    })
+  if (!targetKeys.length) {
+    return
   }
+  const next = new Set(checkedKeys.value.map((id) => String(id)))
+  targetKeys.forEach((id) => {
+    if (layerShouldShow(id, explicit, keyList)) {
+      next.add(id)
+    } else {
+      next.delete(id)
+    }
+  })
+  checkedKeys.value = Array.from(next)
 }
 
 const opcityChange = (node: any, value: string | number) => {

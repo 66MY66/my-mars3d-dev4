@@ -89,7 +89,7 @@
           v-model:expandedKeys="expandedKeys"
           :fieldNames="{ title: 'title', key: 'key', children: 'children' }"
         />
-        <div class="layer-pick-hint">不选择时默认导入全部图层</div>
+        <div class="layer-pick-hint">不勾选时全部导入但先不显示；勾选后只立刻显示勾选的图层</div>
       </a-form-item>
       </template>
 
@@ -932,7 +932,7 @@ function handleOk() {
     return
   }
   const picked = getSelectedLeafIds()
-  emit("submit", { mode: "revision", revisionId: targetRevisionId, timeMode: timeMode.value, strategy: strategy.value, layerIds: picked.length ? picked : undefined })
+  emit("submit", { mode: "revision", revisionId: targetRevisionId, timeMode: timeMode.value, strategy: strategy.value, layerIds: picked })
 }
 
 function handlePauseResume() {

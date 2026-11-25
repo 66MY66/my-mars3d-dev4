@@ -298,6 +298,35 @@ describe("manage-layers/index.vue", () => {
     vi.clearAllMocks()
     widgetUpdateHandler = null
     localStorage.clear()
+    getLayrsTree.mockImplementation((params?: any) => {
+      const item = {
+        id: "layer-1",
+        key: "layer-1",
+        name: "灾后真彩影像",
+        show: true,
+        open: true,
+        group: false,
+        children: []
+      }
+      params?.forEach?.(item, layerFixture)
+      return { tree: [item] }
+    })
+    getLayerById.mockImplementation((id: string) => {
+      if (String(id) === "profiled-layer") {
+        return profiledLayerFixture
+      }
+      if (String(id) === "402001") {
+        return landsatLayerFixture
+      }
+      if (String(id) === "layer-1") {
+        return layerFixture
+      }
+      if (String(id) === "vector-1") {
+        return vectorLayerFixture
+      }
+      return null
+    })
+    getAllLayers.mockImplementation(() => [layerFixture, vectorLayerFixture])
     layerFixture.opacity = 1
     layerFixture.brightness = 1.05
     layerFixture.contrast = 1.08
@@ -345,14 +374,110 @@ describe("manage-layers/index.vue", () => {
     expect(getLayrsTree).toHaveBeenCalledWith(expect.objectContaining({ basemaps: false }))
   })
 
-  it("starts with every business layer unchecked when no saved state exists", async () => {
+  it("checks the imported layer that is already on the map and shows the hidden one when checked", async () => {
+    const boundary = {
+      id: "pref-boundary",
+      name: "云南州市界（按地震次数着色）",
+      type: "geojson",
+      hasOpacity: true,
+      show: true,
+      options: { type: "geojson" }
+    }
+    const events = {
+      id: "pref-events",
+      name: "2023–2025年地震事件",
+      type: "geojson",
+      hasOpacity: true,
+      show: false,
+      options: { type: "geojson" }
+    }
+    const vectorGroup = {
+      id: "vector-group",
+      name: "矢量",
+      type: "group",
+      show: true,
+      options: { type: "group" }
+    }
+    const importGroup = {
+      id: "import-group",
+      name: "导入: 云南州市地震分布",
+      type: "group",
+      show: true,
+      options: { type: "group" }
+    }
+    const layers = {
+      "pref-boundary": boundary,
+      "pref-events": events,
+      "vector-group": vectorGroup,
+      "import-group": importGroup
+    }
+    getAllLayers.mockImplementation(() => [importGroup, vectorGroup, boundary, events])
+    getLayerById.mockImplementation((id: string) => layers[String(id)] || null)
+    getLayrsTree.mockImplementation((params?: any) => {
+      const boundaryNode = { id: "pref-boundary", name: boundary.name, show: true }
+      const eventsNode = { id: "pref-events", name: events.name, show: false }
+      const vectorNode = { id: "vector-group", name: "矢量", group: true, open: true, children: [eventsNode, boundaryNode] }
+      const importNode = { id: "import-group", name: importGroup.name, group: true, open: true, children: [vectorNode] }
+      params?.forEach?.(boundaryNode, boundary)
+      params?.forEach?.(eventsNode, events)
+      params?.forEach?.(vectorNode, vectorGroup)
+      params?.forEach?.(importNode, importGroup)
+      return { tree: [importNode] }
+    })
+
+    const wrapper = mountManageLayers()
+    await flushUi()
+    const vm: any = wrapper.vm
+
+    expect(vm.checkedKeys).toContain("pref-boundary")
+    expect(vm.checkedKeys).not.toContain("pref-events")
+    expect(boundary.show).toBe(true)
+    expect(events.show).toBe(false)
+    expect(updateLayerShowOnly).not.toHaveBeenCalledWith(boundary, false)
+
+    vm.checkedChange([], {
+      node: { key: "pref-events", id: "pref-events", layerId: "pref-events" },
+      checked: true
+    })
+    expect(updateLayerShowOnly).toHaveBeenCalledWith(events, true)
+    expect(events.show).toBe(true)
+    expect(vm.checkedKeys).toContain("pref-events")
+
+    vm.checkedChange(["pref-boundary"], {
+      node: { key: "pref-boundary", id: "pref-boundary", layerId: "pref-boundary" },
+      checked: false
+    })
+    expect(updateLayerShowOnly).toHaveBeenCalledWith(boundary, false)
+    expect(boundary.show).toBe(false)
+    expect(vm.checkedKeys).not.toContain("pref-boundary")
+
+    wrapper.unmount()
+    vi.clearAllTimers()
+  })
+
+  it("keeps a visible imported layer checked when saved keys omit it", async () => {
+    localStorage.setItem("mars3d_layer_checked_keys", JSON.stringify(["vector-1"]))
+
     const wrapper = mountManageLayers()
     await flushUi()
 
     const vm: any = wrapper.vm
-    expect(vm.checkedKeys).toEqual([])
-    expect(layerFixture.show).toBe(false)
-    expect(updateLayerShowOnly).toHaveBeenCalledWith(layerFixture, false)
+    expect(vm.checkedKeys).toEqual(expect.arrayContaining(["layer-1", "vector-1"]))
+    expect(layerFixture.show).toBe(true)
+    expect(updateLayerShowOnly).not.toHaveBeenCalledWith(layerFixture, false)
+
+    wrapper.unmount()
+    vi.clearAllTimers()
+  })
+
+  it("inherits visible business layers when no saved state exists", async () => {
+    const wrapper = mountManageLayers()
+    await flushUi()
+
+    const vm: any = wrapper.vm
+    expect(vm.checkedKeys).toEqual(["layer-1", "vector-1"])
+    expect(layerFixture.show).toBe(true)
+    expect(updateLayerShowOnly).toHaveBeenCalledWith(layerFixture, true)
 
     wrapper.unmount()
     vi.clearAllTimers()
@@ -738,6 +863,7 @@ describe("manage-layers/index.vue", () => {
     }
     vm.deleteTargetTitle = "灾后真彩影像"
     vm.deleteDialogOpen = true
+    getAllLayers.mockImplementation(() => [vectorLayerFixture])
     getLayrsTree.mockReturnValueOnce({ tree: [] })
 
     vm.confirmDelete()
@@ -754,6 +880,8 @@ describe("manage-layers/index.vue", () => {
   })
 
   it("preserves all-hidden layer state across widget page updates", async () => {
+    layerFixture.show = false
+    vectorLayerFixture.show = false
     localStorage.setItem("mars3d_layer_checked_keys", JSON.stringify([]))
     localStorage.setItem("mars3d_layer_expanded_keys", JSON.stringify(["layer-1"]))
 
