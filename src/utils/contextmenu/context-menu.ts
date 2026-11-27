@@ -9,10 +9,8 @@ import {
   getGraphicType,
   getGraphicCenter,
   getGraphicRing,
-  getLineLength,
   getPolygonArea,
   getPolygonRingsFromMap,
-  getLineEndpoints,
   getPolygonVertices,
   getCircleExtremes
 } from "./context-detector"
@@ -47,16 +45,6 @@ async function copyCoordinate(lng: number, lat: number, alt?: number): Promise<b
   } catch {
     return false
   }
-}
-
-function formatDistance(meters: number): string {
-  if (!Number.isFinite(meters)) {
-    return "-"
-  }
-  if (meters >= 1000) {
-    return `${(meters / 1000).toFixed(2)} km`
-  }
-  return `${meters.toFixed(2)} m`
 }
 
 function formatArea(m2: number): string {
@@ -363,13 +351,6 @@ export function getContextMenu(map: mars3d.Map, options: ContextMenuOptions): Me
     return resolvePolygonRingFromMap()
   }
 
-  function resolveSelectedLine(e: any): any | null {
-    if (!isLineMarker(e)) {
-      return null
-    }
-    return e.graphic || null
-  }
-
   function resolveSelectedPolygonRing(e: any): Array<[number, number]> | null {
     if (isAnyPolygon(e)) {
       return resolvePolygonLikeRing(e.graphic)
@@ -377,13 +358,49 @@ export function getContextMenu(map: mars3d.Map, options: ContextMenuOptions): Me
     return resolvePolygonRingFromMap()
   }
 
+  function coordinateRing(list: any): Array<[number, number]> | null {
+    if (!Array.isArray(list)) {
+      return null
+    }
+    const ring = list
+      .filter((point: any) => Array.isArray(point) && point.length >= 2 && Number.isFinite(Number(point[0])) && Number.isFinite(Number(point[1])))
+      .map((point: any) => [Number(point[0]), Number(point[1])] as [number, number])
+    return ring.length >= 3 ? ring : null
+  }
+
+  function resolveRectangleRing(graphic: any): Array<[number, number]> | null {
+    try {
+      const outlined = graphic?.toGeoJSON?.({ outline: true, closure: true, noAlt: true })
+      const coords = outlined?.geometry?.coordinates
+      const ring = coordinateRing(Array.isArray(coords) ? coords[0] : null)
+      if (ring) {
+        return ring
+      }
+    } catch {
+    }
+    try {
+      const ring = coordinateRing(graphic?.getOutlineCoordinates?.(true, true))
+      if (ring) {
+        return ring
+      }
+    } catch {
+    }
+    return null
+  }
+
   function resolvePolygonLikeRing(graphic: any): Array<[number, number]> | null {
+    if (getGraphicType(graphic) === "rectangle") {
+      const rectangleRing = resolveRectangleRing(graphic)
+      if (rectangleRing) {
+        return rectangleRing
+      }
+    }
     try {
       const gj = graphic?.toGeoJSON?.()
       const coords = gj?.geometry?.coordinates
       if (Array.isArray(coords) && Array.isArray(coords[0]) && Array.isArray(coords[0][0])) {
-        const ring = coords[0].filter((c: any) => Array.isArray(c) && c.length >= 2).map((c: any) => [Number(c[0]), Number(c[1])] as [number, number])
-        if (ring.length >= 3) {
+        const ring = coordinateRing(coords[0])
+        if (ring) {
           return ring
         }
       }
@@ -437,17 +454,6 @@ export function getContextMenu(map: mars3d.Map, options: ContextMenuOptions): Me
     return null
   }
 
-  function canUsePolygonSelection(e: any): boolean {
-    if (isAnyPolygon(e)) {
-      return true
-    }
-    if (isBlankOrLayerAny(e)) {
-      const ring = resolvePolygonRingFromMap()
-      return !!(ring && ring.length >= 3)
-    }
-    return false
-  }
-
   // ==================== 回调函数 ====================
 
   /** 复制坐标（空白处/图层） */
@@ -477,29 +483,6 @@ export function getContextMenu(map: mars3d.Map, options: ContextMenuOptions): Me
       }
     } else {
       onToast("无法获取坐标", "error")
-    }
-  }
-
-  /** 复制线坐标（起点-终点+长度格式） */
-  const handleCopyLineCoordinates = async (e: any) => {
-    const endpoints = getLineEndpoints(e.graphic)
-    if (!endpoints) {
-      onToast("无法获取线坐标", "error")
-      return
-    }
-
-    const length = getLineLength(e.graphic)
-    const lengthText = length !== null ? formatDistance(length) : "未知"
-
-    const text = `起点: ${endpoints.start.lng.toFixed(6)}, ${endpoints.start.lat.toFixed(6)}
-终点: ${endpoints.end.lng.toFixed(6)}, ${endpoints.end.lat.toFixed(6)}
-长度: ${lengthText}`
-
-    try {
-      await navigator.clipboard.writeText(text)
-      onToast("已复制坐标和长度", "success")
-    } catch {
-      onToast("复制失败", "error")
     }
   }
 
@@ -574,45 +557,6 @@ ${vertices.map((v) => `  ${v.lng.toFixed(6)}, ${v.lat.toFixed(6)}`).join("\n")}`
     })
     map.graphicLayer.addGraphic(graphic)
     onToast(`已添加标记`, "success")
-  }
-
-  /** 绘制线 */
-  const handleDrawLine = () => {
-    map.graphicLayer.startDraw({
-      type: "polyline",
-      style: {
-        color: "#00ffff",
-        width: 2,
-        clampToGround: true
-      },
-      success: (graphic: any) => {
-        const positions = graphic.positions
-        if (positions && positions.length >= 2) {
-          const distance = mars3d.MeasureUtil.getDistance(positions)
-          const center = positions[Math.floor(positions.length / 2)]
-
-          // 添加距离标签
-          const labelGraphic = new mars3d.graphic.LabelPrimitive({
-            position: center,
-            style: {
-              text: formatDistance(distance),
-              font_size: 14,
-              font_family: "微软雅黑",
-              fillColor: "#ffffff",
-              outlineColor: "#000000",
-              outlineWidth: 2,
-              horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
-              verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-              pixelOffsetY: -10
-            },
-            attr: { measure: true, parentId: graphic.id }
-          })
-          map.graphicLayer.addGraphic(labelGraphic)
-
-          onToast(`绘制完成，距离: ${formatDistance(distance)}`, "success")
-        }
-      }
-    })
   }
 
   /** 绘制面 */
@@ -1009,24 +953,6 @@ ${vertices.map((v) => `  ${v.lng.toFixed(6)}, ${v.lat.toFixed(6)}`).join("\n")}`
     return ctx.graphic?.attr?.isAnomaly === true
   }
 
-  /** 剖面分析 */
-  const handleProfileAnalysis = (e: any) => {
-    if (!hasServiceForAnalysis()) {
-      onToast(reasonServiceUnavailable, "error")
-      return
-    }
-    if (!canUse("analysis:profile")) {
-      onToast(reasonNoPermission, "error")
-      return
-    }
-    const graphic = resolveSelectedLine(e)
-    if (!graphic) {
-      onToast("请先选择线对象或生成剖面线", "info")
-      return
-    }
-    activateWidget!("insar-profile", { graphic })
-  }
-
   /** 缓冲区分析 */
   const handleBufferAnalysis = (e: any) => {
     if (!hasServiceForAnalysis()) {
@@ -1066,55 +992,6 @@ ${vertices.map((v) => `  ${v.lng.toFixed(6)}, ${v.lat.toFixed(6)}`).join("\n")}`
       return
     }
     activateWidget!("spatial-analysis", { type: "buffer", target, sourceGraphic: e.graphic })
-  }
-
-  /** 叠加分析 */
-  const handleOverlayAnalysis = (e: any) => {
-    if (!hasServiceForAnalysis()) {
-      onToast(reasonServiceUnavailable, "error")
-      return
-    }
-    if (!canUse("analysis:overlay")) {
-      onToast(reasonNoPermission, "error")
-      return
-    }
-    const ring = resolveSelectedPolygonRing(e)
-    if (!ring || ring.length < 3) {
-      onToast(reasonNoSelection, "info")
-      return
-    }
-    if (!canUsePolygonSelection(e)) {
-      onToast("请先选择面对象", "info")
-      return
-    }
-    activateWidget!("spatial-analysis", { type: "overlay", target: { type: "polygon", ring } })
-  }
-
-  /** 邻域分析 */
-  const handleNeighborhoodAnalysis = (e: any) => {
-    if (!hasServiceForAnalysis()) {
-      onToast(reasonServiceUnavailable, "error")
-      return
-    }
-    if (!canUse("analysis:neighbor")) {
-      onToast(reasonNoPermission, "error")
-      return
-    }
-    if (!canUsePolygonSelection(e)) {
-      onToast("请先选择面对象", "info")
-      return
-    }
-    const ring = resolveSelectedPolygonRing(e)
-    if (!ring || ring.length < 3) {
-      onToast(reasonNoSelection, "info")
-      return
-    }
-    activateWidget!("spatial-analysis", { type: "neighbor", target: { type: "polygon", ring } })
-  }
-
-  /** 可视域分析（预留） */
-  const handleViewshedAnalysis = () => {
-    onToast("功能暂未开放", "info")
   }
 
   /** 生成圆形缓冲区环坐标 */
@@ -1288,114 +1165,6 @@ ${vertices.map((v) => `  ${v.lng.toFixed(6)}, ${v.lat.toFixed(6)}`).join("\n")}`
 
   return [
     {
-      text: "空间分析",
-      icon: "fa fa-flask",
-      show: function (e: any) {
-        return isAnyPolygon(e)
-      },
-      children: [
-        {
-          text: "缓冲区分析",
-          icon: "fa fa-bullseye",
-          show: function (e: any) {
-            return isAnyPolygon(e)
-          },
-          disabled: function (e: any) {
-            if (!canUse("analysis:buffer")) {
-              return true
-            }
-            if (!hasServiceForAnalysis()) {
-              return true
-            }
-            const ring = resolveTargetRingForAnalysis(e)
-            return !ring || ring.length < 3
-          },
-          disabledReason: function (e: any) {
-            if (!canUse("analysis:buffer")) {
-              return reasonNoPermission
-            }
-            if (!hasServiceForAnalysis()) {
-              return reasonServiceUnavailable
-            }
-            return reasonNoSelection
-          },
-          callback: handleBufferAnalysis
-        },
-        {
-          text: "叠加分析",
-          icon: "fa fa-object-group",
-          show: function (e: any) {
-            return isAnyPolygon(e)
-          },
-          disabled: function (e: any) {
-            if (!canUse("analysis:overlay")) {
-              return true
-            }
-            if (!hasServiceForAnalysis()) {
-              return true
-            }
-            const ring = resolveSelectedPolygonRing(e)
-            return !ring || ring.length < 3 || !canUsePolygonSelection(e)
-          },
-          disabledReason: function (e: any) {
-            if (!canUse("analysis:overlay")) {
-              return reasonNoPermission
-            }
-            if (!hasServiceForAnalysis()) {
-              return reasonServiceUnavailable
-            }
-            const ring = resolveSelectedPolygonRing(e)
-            if (!ring || ring.length < 3) {
-              return reasonNoSelection
-            }
-            return "请先选择面对象"
-          },
-          callback: handleOverlayAnalysis
-        },
-        {
-          text: "邻域分析",
-          icon: "fa fa-th",
-          show: function (e: any) {
-            return isAnyPolygon(e)
-          },
-          disabled: function (e: any) {
-            if (!canUse("analysis:neighbor")) {
-              return true
-            }
-            if (!hasServiceForAnalysis()) {
-              return true
-            }
-            const ring = resolveSelectedPolygonRing(e)
-            return !ring || ring.length < 3 || !canUsePolygonSelection(e)
-          },
-          disabledReason: function (e: any) {
-            if (!canUse("analysis:neighbor")) {
-              return reasonNoPermission
-            }
-            if (!hasServiceForAnalysis()) {
-              return reasonServiceUnavailable
-            }
-            const ring = resolveSelectedPolygonRing(e)
-            if (!ring || ring.length < 3) {
-              return reasonNoSelection
-            }
-            return "请先选择面对象"
-          },
-          callback: handleNeighborhoodAnalysis
-        },
-        {
-          text: "可视域分析",
-          icon: "fa fa-eye",
-          show: function (e: any) {
-            return isAnyPolygon(e)
-          },
-          disabled: true,
-          disabledReason: "功能暂未开放",
-          callback: handleViewshedAnalysis
-        }
-      ]
-    },
-    {
       text: "查看统计",
       icon: "fa fa-bar-chart",
       show: function (e: any) {
@@ -1432,7 +1201,7 @@ ${vertices.map((v) => `  ${v.lng.toFixed(6)}, ${v.lat.toFixed(6)}`).join("\n")}`
       text: "专题制图",
       icon: "fa fa-paint-brush",
       show: function (e: any) {
-        return isBlankOrLayerAny(e) || isAnyMarker(e)
+        return isBlankOrLayerAny(e) || (isAnyMarker(e) && !isLineMarker(e))
       },
       disabled: function () {
         return !hasServiceForWorkbench()
@@ -1442,7 +1211,7 @@ ${vertices.map((v) => `  ${v.lng.toFixed(6)}, ${v.lat.toFixed(6)}`).join("\n")}`
       },
       callback: handleOpenThematicWorkbench
     },
-    { type: "line", show: function (e: any) { return isAnyMarker(e) } },
+    { type: "line", show: function (e: any) { return isAnyMarker(e) && !isLineMarker(e) } },
 
     // ==================== 统一菜单（空白处/图层） ====================
     {
@@ -1468,7 +1237,6 @@ ${vertices.map((v) => `  ${v.lng.toFixed(6)}, ${v.lat.toFixed(6)}`).join("\n")}`
         return isBlankOrLayer(e)
       },
       children: [
-        { text: "绘制线", callback: handleDrawLine },
         { text: "绘制面", callback: handleDrawPolygon },
         { text: "绘制矩形", callback: handleDrawRectangle },
         { text: "绘制形", callback: handleDrawShape },
@@ -1605,87 +1373,6 @@ ${vertices.map((v) => `  ${v.lng.toFixed(6)}, ${v.lat.toFixed(6)}`).join("\n")}`
       icon: "fa fa-trash",
       show: function (e: any) {
         return isPointMarker(e)
-      },
-      callback: handleDelete
-    },
-
-    // ==================== 线标记菜单 ====================
-    {
-      text: "定位",
-      icon: "fa fa-crosshairs",
-      show: function (e: any) {
-        return isLineMarker(e)
-      },
-      callback: handleLocate
-    },
-    {
-      text: "剖面分析",
-      icon: "fa fa-line-chart",
-      show: function (e: any) {
-        return isLineMarker(e)
-      },
-      disabled: function (e: any) {
-        if (!canUse("analysis:profile")) {
-          return true
-        }
-        if (!hasServiceForAnalysis()) {
-          return true
-        }
-        const graphic = resolveSelectedLine(e)
-        return !graphic
-      },
-      disabledReason: function (e: any) {
-        if (!canUse("analysis:profile")) {
-          return reasonNoPermission
-        }
-        if (!hasServiceForAnalysis()) {
-          return reasonServiceUnavailable
-        }
-        const graphic = resolveSelectedLine(e)
-        return graphic ? "" : "请先选择线对象或生成剖面线"
-      },
-      callback: handleProfileAnalysis
-    },
-    {
-      text: "缓冲区分析",
-      icon: "fa fa-bullseye",
-      show: function (e: any) {
-        return isLineMarker(e)
-      },
-      callback: handleBufferAnalysis
-    },
-    {
-      text: "编辑",
-      icon: "fa fa-edit",
-      show: function (e: any) {
-        return isLineMarker(e)
-      },
-      callback: handleEdit
-    },
-    { type: "line", show: function (e: any) { return isLineMarker(e) } },
-    {
-      text: "复制坐标",
-      icon: "fa fa-copy",
-      show: function (e: any) {
-        return isLineMarker(e)
-      },
-      callback: handleCopyLineCoordinates
-    },
-    { type: "line", show: function (e: any) { return isLineMarker(e) } },
-    {
-      text: "导出",
-      icon: "fa fa-download",
-      show: function (e: any) {
-        return isLineMarker(e)
-      },
-      callback: handleExport
-    },
-    { type: "line", show: function (e: any) { return isLineMarker(e) } },
-    {
-      text: "删除",
-      icon: "fa fa-trash",
-      show: function (e: any) {
-        return isLineMarker(e)
       },
       callback: handleDelete
     },

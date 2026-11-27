@@ -4,7 +4,7 @@
       ref="ballRef"
       type="button"
       class="map-float-ball"
-      :class="{ 'is-dragging': dragging, 'is-open': drawerOpen, 'has-running-tasks': runningCount > 0 }"
+      :class="{ 'is-dragging': dragging, 'is-open': drawerOpen, 'has-running-tasks': activeCount > 0 }"
       :style="ballStyle"
       :aria-expanded="drawerOpen"
       aria-controls="task-center-drawer"
@@ -16,9 +16,14 @@
         <span class="ball-core__ring"></span>
         <span class="ball-core__bars"></span>
       </span>
-      <span v-if="runningCount" class="map-float-ball__badge" aria-hidden="true">{{ runningCount }}</span>
-      <span class="sr-only">{{ runningCount ? `${runningCount} 个任务进行中` : "当前无运行任务" }}</span>
+      <span v-if="activeCount" class="map-float-ball__badge" aria-hidden="true">{{ activeCount }}</span>
+      <span class="sr-only">{{ activeCount ? `${activeCount} 个任务进行中` : "当前无运行任务" }}</span>
     </button>
+
+    <div v-if="bubbleNotice" class="map-float-ball__notice" :style="noticeStyle" role="status">
+      <strong>{{ bubbleNotice.title }}</strong>
+      <span>{{ bubbleNotice.message }}</span>
+    </div>
 
     <aside
       v-if="drawerOpen"
@@ -39,17 +44,17 @@
           <span></span><span></span><span></span>
         </div>
         <div>
-          <strong>{{ runningCount }} 个任务进行中</strong>
+          <strong>{{ runningTasks.length }} 个任务进行中</strong>
           <p>{{ queuedTasks.length }} 个排队 · {{ failedCount }} 个需要关注</p>
         </div>
-        <span class="task-center-summary__updated">刚刚更新</span>
+        <span class="task-center-summary__updated">{{ updatedLabel }}</span>
       </div>
 
       <div class="task-center-drawer__body">
-        <section class="task-section" aria-labelledby="running-task-title">
+        <section v-if="runningTasks.length" class="task-section" aria-labelledby="running-task-title">
           <div class="task-section__title-row">
             <h4 id="running-task-title"><span class="status-dot is-running"></span>正在运行</h4>
-            <span>{{ runningCount }}</span>
+            <span>{{ runningTasks.length }}</span>
           </div>
 
           <article v-for="task in runningTasks" :key="task.id" class="task-running-card">
@@ -74,44 +79,49 @@
             </div>
             <div class="task-running-card__footer">
               <span class="live-indicator"><i></i>状态更新中</span>
-              <span>预计剩余 {{ task.remaining }}</span>
+              <span>{{ task.id }}</span>
             </div>
           </article>
         </section>
 
-        <section class="task-section task-queued" aria-labelledby="queued-task-title">
+        <section v-if="queuedTasks.length" class="task-section task-queued" aria-labelledby="queued-task-title">
           <div class="task-section__title-row">
             <h4 id="queued-task-title"><span class="status-dot is-queued"></span>{{ queuedTasks.length }} 个任务排队中</h4>
           </div>
           <div v-for="task in queuedTasks" :key="task.id" class="queued-task-row">
             <span class="task-kind" :class="`is-${task.kind}`">{{ task.kindLabel }}</span>
             <span class="queued-task-row__name">{{ task.name }}</span>
-            <span class="queued-task-row__status">等待资源</span>
+            <span class="queued-task-row__status">{{ task.stage || "已受理" }}</span>
           </div>
         </section>
 
         <section class="task-section" aria-labelledby="recent-task-title">
           <div class="task-section__title-row">
             <h4 id="recent-task-title">最近任务</h4>
-            <span>最近 24 小时</span>
+            <span>共 {{ recentTasks.length }} 条</span>
           </div>
-          <div class="recent-task-list">
+          <div v-if="recentTasks.length" class="recent-task-list">
             <div v-for="task in recentTasks" :key="task.id" class="recent-task-row">
               <span class="recent-task-row__icon" :class="`is-${task.status}`" aria-hidden="true">
-                {{ task.status === "success" ? "✓" : "!" }}
+                {{ task.status === "success" ? "✓" : task.status === "failed" ? "!" : "·" }}
               </span>
               <div class="recent-task-row__content">
                 <strong>{{ task.name }}</strong>
                 <span>{{ task.kindLabel }} · {{ task.stage }}</span>
+                <div v-if="task.downloadUrl || task.previewUrl" class="recent-task-row__links">
+                  <a v-if="task.previewUrl" :href="task.previewUrl" target="_blank" rel="noopener noreferrer">预览</a>
+                  <a v-if="task.downloadUrl" :href="task.downloadUrl" target="_blank" rel="noopener noreferrer" :download="task.fileName || `${task.id}`">下载成果</a>
+                </div>
               </div>
               <time>{{ task.finishedAt }}</time>
             </div>
           </div>
+          <div v-else class="recent-task-empty">暂无任务记录，可在 CUI 对话中发起「生成报告」或「做专题图」</div>
         </section>
       </div>
       <footer class="task-center-drawer__footer">
-        <span class="placeholder-dot"></span>
-        演示数据 · 任务服务暂未接入
+        <span class="placeholder-dot" :class="{ 'is-live': serviceReady }"></span>
+        {{ tasks.length ? `已接入实时任务服务 · 共 ${tasks.length} 条任务` : "实时任务服务已就绪 · 暂无任务" }}
       </footer>
     </aside>
   </teleport>
@@ -119,6 +129,23 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from "vue"
+
+type FloatTaskItem = {
+  id: string
+  kind: "generate" | "publish" | "export"
+  kindLabel: string
+  name: string
+  rawStatus: string
+  status: "running" | "queued" | "success" | "failed" | "cancelled"
+  stage: string
+  progress: number
+  startedAt: string
+  finishedAt: string
+  downloadUrl?: string
+  previewUrl?: string
+  fileName?: string
+  updatedAtMs: number
+}
 
 const SIZE = 52
 const MARGIN = 16
@@ -129,48 +156,219 @@ const viewport = ref({ w: window.innerWidth, h: window.innerHeight })
 const pos = ref(getStoredPos())
 const dragging = ref(false)
 const drawerOpen = ref(false)
+const tasks = ref<FloatTaskItem[]>([])
+const serviceReady = ref(false)
+const updatedLabel = ref("实时同步中")
+const bubbleNotice = ref<{ title: string; message: string } | null>(null)
+let noticeTimer: number | undefined
+let pollTimer: number | undefined
 
-const runningTasks = [
-  {
-    id: "demo-generate-1",
-    kind: "generate",
-    kindLabel: "生成任务",
-    name: "震后灾损专题图",
-    stage: "正在渲染图层",
-    progress: 72,
-    remaining: "1 分钟",
-    startedAt: "14:28 开始"
-  },
-  {
-    id: "demo-publish-1",
-    kind: "publish",
-    kindLabel: "发布任务",
-    name: "全国影像瓦片服务",
-    stage: "正在生成瓦片",
-    progress: 41,
-    remaining: "4 分钟",
-    startedAt: "14:26 开始"
+const runningTasks = computed(() => tasks.value.filter((t) => t.status === "running"))
+const queuedTasks = computed(() => tasks.value.filter((t) => t.status === "queued"))
+const recentTasks = computed(() =>
+  tasks.value.filter((t) => t.status === "success" || t.status === "failed" || t.status === "cancelled").slice(0, 12)
+)
+const activeCount = computed(() => runningTasks.value.length + queuedTasks.value.length)
+const failedCount = computed(() => tasks.value.filter((t) => t.status === "failed").length)
+
+function classifyKind(taskType: string, name: string): { kind: FloatTaskItem["kind"]; kindLabel: string } {
+  const txt = `${taskType} ${name}`.toLowerCase()
+  if (txt.includes("report") || txt.includes("报告") || txt.includes("export")) {
+    return { kind: "export", kindLabel: "报告任务" }
   }
-] as const
+  if (txt.includes("publish") || txt.includes("发布")) {
+    return { kind: "publish", kindLabel: "发布任务" }
+  }
+  return { kind: "generate", kindLabel: "制图任务" }
+}
 
-const queuedTasks = [
-  { id: "demo-export-queued", kind: "export", kindLabel: "导出任务", name: "区域变化分析报告" }
-] as const
+function mapStatus(raw: string): FloatTaskItem["status"] {
+  const s = String(raw || "").toLowerCase()
+  if (s === "accepted" || s === "queued" || s === "pending") {
+    return "queued"
+  }
+  if (s === "running" || s === "processing" || s === "in_progress") {
+    return "running"
+  }
+  if (s === "succeeded" || s === "completed" || s === "done" || s === "success") {
+    return "success"
+  }
+  if (s === "cancelled" || s === "canceled") {
+    return "cancelled"
+  }
+  return "failed"
+}
 
-const recentTasks = [
-  { id: "demo-recent-1", status: "success", kindLabel: "导出任务", name: "遥感分析报告", stage: "导出完成", finishedAt: "2 分钟前" },
-  { id: "demo-recent-2", status: "success", kindLabel: "生成任务", name: "土地覆盖专题图", stage: "生成完成", finishedAt: "8 分钟前" },
-  { id: "demo-recent-3", status: "failed", kindLabel: "发布任务", name: "WMS 影像服务", stage: "发布失败", finishedAt: "12 分钟前" }
-] as const
+function resolveDefaultStage(mapped: FloatTaskItem["status"]): string {
+  if (mapped === "queued") {
+    return "已受理排队中"
+  }
+  if (mapped === "running") {
+    return "正在执行"
+  }
+  if (mapped === "success") {
+    return "已完成"
+  }
+  if (mapped === "cancelled") {
+    return "已取消"
+  }
+  return "执行失败"
+}
 
-const runningCount = runningTasks.length
-const failedCount = recentTasks.filter((task) => task.status === "failed").length
+function resolveDefaultProgress(mapped: FloatTaskItem["status"]): number {
+  if (mapped === "success") {
+    return 100
+  }
+  if (mapped === "running") {
+    return 60
+  }
+  return 20
+}
+
+function pickStr(raw: Record<string, unknown>, ...keys: string[]): string | undefined {
+  for (const k of keys) {
+    const val = raw[k]
+    if (typeof val === "string" && val) {
+      return val
+    }
+  }
+  return undefined
+}
+
+function normalizeTaskPayload(raw: Record<string, unknown>): FloatTaskItem | null {
+  const id = String(raw.taskId || raw.task_id || raw.id || "").trim()
+  if (!id) {
+    return null
+  }
+  const rawStatus = String(raw.status || "accepted")
+  const mappedStatus = mapStatus(rawStatus)
+  const name = String(raw.title || raw.name || raw.target_name || id).trim()
+  const taskType = String(raw.taskType || raw.task_type || "")
+  const { kind, kindLabel } = classifyKind(taskType, name)
+  const defaultStage = resolveDefaultStage(mappedStatus)
+  const stage = String(raw.stage || raw.current_step || defaultStage).trim() || defaultStage
+  const rawProgress = Number(raw.progress)
+  const progress = Number.isFinite(rawProgress)
+    ? Math.max(0, Math.min(100, rawProgress))
+    : resolveDefaultProgress(mappedStatus)
+  const finishedRaw = String(raw.completedAt || raw.completed_at || raw.finishedAt || "")
+  const finishedAt = finishedRaw.slice(11, 19) || finishedRaw || "刚刚"
+  const startedAt = String(raw.startedAt || raw.started_at || "").slice(11, 19) || "刚刚开始"
+  const downloadUrl = mappedStatus === "success" ? pickStr(raw, "downloadUrl", "download_url") : undefined
+  const previewUrl = mappedStatus === "success" ? pickStr(raw, "previewUrl", "preview_url") : undefined
+  const fileName = pickStr(raw, "fileName", "file_name")
+  return {
+    id,
+    kind,
+    kindLabel,
+    name,
+    rawStatus,
+    status: mappedStatus,
+    stage,
+    progress,
+    startedAt,
+    finishedAt,
+    downloadUrl,
+    previewUrl,
+    fileName,
+    updatedAtMs: Date.now()
+  }
+}
+
+function showNotice(title: string, message: string) {
+  bubbleNotice.value = { title, message }
+  if (noticeTimer) {
+    window.clearTimeout(noticeTimer)
+  }
+  noticeTimer = window.setTimeout(() => {
+    bubbleNotice.value = null
+  }, 4000)
+}
+
+function upsertTask(item: FloatTaskItem, notify = false) {
+  const idx = tasks.value.findIndex((t) => t.id === item.id)
+  const prev = idx >= 0 ? tasks.value[idx] : null
+  if (idx >= 0) {
+    tasks.value.splice(idx, 1, { ...prev, ...item })
+  } else {
+    tasks.value.unshift(item)
+  }
+  if (notify && (!prev || prev.status !== item.status)) {
+    if (item.status === "queued" || item.status === "running") {
+      showNotice("耗时任务已启动", `${item.name}（${item.id}）`)
+    } else if (item.status === "success") {
+      showNotice("任务已完成", `${item.name} 已生成，可查看或下载`)
+    } else if (item.status === "failed") {
+      showNotice("任务执行失败", item.name)
+    }
+  }
+}
+
+function onTaskStatusEvent(event: Event) {
+  const detail = (event as CustomEvent<Record<string, unknown>>).detail
+  if (!detail || typeof detail !== "object") {
+    return
+  }
+  const item = normalizeTaskPayload(detail)
+  if (!item) {
+    return
+  }
+  serviceReady.value = true
+  updatedLabel.value = "刚刚更新"
+  upsertTask(item, true)
+}
+
+async function fetchTasks() {
+  if (typeof fetch !== "function") {
+    return
+  }
+  const base = String(import.meta.env.VITE_HERMES_WEB_UI_URL || "http://192.168.10.15:6060").replace(/\/+$/, "")
+  const controller = typeof AbortController === "function" ? new AbortController() : undefined
+  const timeout = controller ? window.setTimeout(() => controller.abort(), 5000) : undefined
+  try {
+    const res = await fetch(`${base}/api/cui/tasks`, {
+      cache: "no-store",
+      ...(controller ? { signal: controller.signal } : {})
+    })
+    if (!res.ok) {
+      return
+    }
+    const data = (await res.json()) as { tasks?: unknown[] }
+    if (!Array.isArray(data?.tasks)) {
+      return
+    }
+    serviceReady.value = true
+    updatedLabel.value = "刚刚同步"
+    for (const raw of data.tasks) {
+      if (raw && typeof raw === "object") {
+        const item = normalizeTaskPayload(raw as Record<string, unknown>)
+        if (item) {
+          upsertTask(item, false)
+        }
+      }
+    }
+  } catch {
+    // 静默忽略网络未就绪或测试环境无后端的情况
+  } finally {
+    if (timeout) {
+      window.clearTimeout(timeout)
+    }
+  }
+}
 
 const ballStyle = computed(() => {
   const clamped = clampPos(pos.value.x, pos.value.y)
   return {
     left: `${clamped.x}px`,
     top: `${clamped.y}px`
+  }
+})
+
+const noticeStyle = computed(() => {
+  const clamped = clampPos(pos.value.x, pos.value.y)
+  return {
+    left: `${Math.max(MARGIN, clamped.x - 240)}px`,
+    top: `${Math.max(MARGIN, clamped.y - 54)}px`
   }
 })
 
@@ -267,6 +465,9 @@ function onPointerUp() {
     return
   }
   drawerOpen.value = !drawerOpen.value
+  if (drawerOpen.value) {
+    fetchTasks().catch(() => undefined)
+  }
 }
 
 let resizeRaf = 0
@@ -283,14 +484,28 @@ function onViewportResize() {
 
 onMounted(() => {
   window.addEventListener("resize", onViewportResize)
+  window.addEventListener("cui-task-status", onTaskStatusEvent)
   pos.value = clampPos(pos.value.x, pos.value.y)
+  fetchTasks().catch(() => undefined)
+  pollTimer = window.setInterval(() => {
+    if (drawerOpen.value || activeCount.value > 0) {
+      fetchTasks().catch(() => undefined)
+    }
+  }, 6000)
 })
 
 onUnmounted(() => {
   window.removeEventListener("resize", onViewportResize)
+  window.removeEventListener("cui-task-status", onTaskStatusEvent)
   window.removeEventListener("pointermove", onPointerMove)
   if (resizeRaf) {
     cancelAnimationFrame(resizeRaf)
+  }
+  if (noticeTimer) {
+    window.clearTimeout(noticeTimer)
+  }
+  if (pollTimer) {
+    window.clearInterval(pollTimer)
   }
 })
 </script>
@@ -405,6 +620,26 @@ onUnmounted(() => {
 
 .map-float-ball.is-open {
   box-shadow: 0 10px 24px rgba(45, 140, 240, 0.52);
+}
+
+.map-float-ball__notice {
+  position: fixed;
+  z-index: 1201;
+  max-width: 260px;
+  padding: 8px 12px;
+  border: 1px solid rgba(92, 173, 255, 0.42);
+  border-radius: 12px;
+  background: rgba(17, 29, 49, 0.94);
+  color: #ffffff;
+  font-size: 12px;
+  box-shadow: 0 12px 32px rgba(4, 12, 27, 0.35);
+}
+
+.map-float-ball__notice strong {
+  display: block;
+  color: #75bfff;
+  font-size: 11px;
+  margin-bottom: 2px;
 }
 
 .task-center-drawer {
@@ -736,7 +971,8 @@ onUnmounted(() => {
 }
 
 .recent-task-row__icon.is-success { color: #72dfb7; background: rgba(52, 199, 143, 0.13); }
-.recent-task-row__icon.is-failed { color: #ff8992; background: rgba(255, 89, 100, 0.13); }
+.recent-task-row__icon.is-failed,
+.recent-task-row__icon.is-cancelled { color: #ff8992; background: rgba(255, 89, 100, 0.13); }
 
 .recent-task-row__content {
   min-width: 0;
@@ -763,6 +999,26 @@ onUnmounted(() => {
   font-size: 9px;
 }
 
+.recent-task-row__links {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.recent-task-row__links a {
+  color: #75bfff;
+  font-size: 11px;
+  text-decoration: underline;
+}
+
+.recent-task-empty {
+  padding: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  color: rgba(255, 255, 255, 0.56);
+  font-size: 11px;
+}
+
 .recent-task-row time {
   margin-top: 0;
   white-space: nowrap;
@@ -784,6 +1040,10 @@ onUnmounted(() => {
   height: 5px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.32);
+}
+
+.placeholder-dot.is-live {
+  background: #34c78f;
 }
 
 .sr-only {

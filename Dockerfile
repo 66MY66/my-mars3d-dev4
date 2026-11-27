@@ -14,7 +14,7 @@ WORKDIR /app
 ENV npm_config_registry=https://registry.npmmirror.com/
 
 # 启用 pnpm（与宿主机一致，走 lockfile 与 patchedDependencies）
-RUN corepack enable && corepack prepare pnpm@9.0.0 --activate
+RUN corepack enable && corepack prepare pnpm@12.16.1 --activate
 
 # 复制依赖清单与补丁，先装依赖以利用层缓存
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./

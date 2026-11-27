@@ -244,7 +244,7 @@
       "pid": 101,
       "name": "中国活动断层线",
       "type": "geojson",
-      "url": "http://192.168.10.15:9002/rs-products/spatial/china-faults/active_faults.geojson",
+      "url": "/api/rs-products/rs-products/spatial/china-faults/active_faults.geojson",
       "symbol": {
         "type": "polylineP",
         "styleOptions": {
@@ -394,7 +394,7 @@
       "pid": 5310,
       "name": "中国省界",
       "type": "geojson",
-      "url": "http://192.168.10.15:9002/rs-products/spatial/china-admin/province_border.geojson",
+      "url": "/api/rs-products/rs-products/spatial/china-admin/province_border.geojson",
       "symbol": {
         "type": "polylineP",
         "styleOptions": {
@@ -686,7 +686,7 @@
       "pid": 4110,
       "name": "地表温度 (GISS-E2-1-G)",
       "type": "wms",
-      "url": "http://192.168.10.15:5952/collections/CMIP6_daily_GISS-E2-1-G_tas/WMTSCapabilities.xml",
+      "url": "/api/titiler/collections/CMIP6_daily_GISS-E2-1-G_tas/WMTSCapabilities.xml",
       "layers": "CMIP6_daily_GISS-E2-1-G_tas",
       "crs": "EPSG:4326",
       "parameters": {
@@ -781,7 +781,7 @@
       "pid": 4130,
       "name": "NOAA 紧急响应数据",
       "type": "wms",
-      "url": "http://192.168.10.15:5952/collections/noaa-emergency-response/WMTSCapabilities.xml",
+      "url": "/api/titiler/collections/noaa-emergency-response/WMTSCapabilities.xml",
       "layers": "noaa-emergency-response",
       "crs": "EPSG:4326",
       "parameters": {
@@ -806,7 +806,7 @@
       "pid": 4140,
       "name": "Maxar 开放数据",
       "type": "wms",
-      "url": "http://192.168.10.15:5952/collections/maxar-opendata/WMTSCapabilities.xml",
+      "url": "/api/titiler/collections/maxar-opendata/WMTSCapabilities.xml",
       "layers": "maxar-opendata",
       "crs": "EPSG:4326",
       "parameters": {
@@ -830,7 +830,7 @@
       "pid": 4150,
       "name": "OpenAerialMap",
       "type": "wms",
-      "url": "http://192.168.10.15:5952/collections/open-aerial-map/WMTSCapabilities.xml",
+      "url": "/api/titiler/collections/open-aerial-map/WMTSCapabilities.xml",
       "layers": "open-aerial-map",
       "crs": "EPSG:4326",
       "parameters": {
@@ -897,59 +897,61 @@
     {
       "id": 706001,
       "pid": 7060,
-      "name": "演化过程演示",
+      "name": "热异常时空演化分析",
       "type": "graphic",
       "data": [
         {
-          "type": "polylineP",
-          "name": "热异常演化轨迹示例",
-          "positions": [
-            [
-              100.5,
-              25.0
-            ],
-            [
-              101.0,
-              25.5
-            ],
-            [
-              101.5,
-              26.0
-            ],
-            [
-              102.0,
-              26.5
-            ],
-            [
-              102.5,
-              27.0
-            ]
+          "type": "point",
+          "name": "熊本热异常监测核心区",
+          "position": [
+            130.7,
+            32.8
           ],
           "style": {
-            "color": "#ff0000",
-            "width": 3,
-            "clampToGround": true
+            "color": "#ff4d4f",
+            "pixelSize": 8
+          }
+        },
+        {
+          "type": "point",
+          "name": "云南漾濞热异常监测区",
+          "position": [
+            99.87,
+            25.67
+          ],
+          "style": {
+            "color": "#faad14",
+            "pixelSize": 8
           }
         }
       ],
       "onWidget": "layer-thermal-evolution",
       "metadata": {
-        "detailProfile": "thermal-evolution-demo"
+        "detailProfile": "thermal-evolution-demo",
+        "source": "5435/windmill geo_anomaly"
       }
     },
     {
       "pid": 7060,
-      "name": "历史热异常时序",
+      "name": "2026-07-27 熊本热异常差值时序",
       "type": "xyz",
-      "url": "http://192.168.10.15:5955/cog/tiles/{z}/{x}/{y}@1x?url=/data/thermal/thermal_timeline_2018_2023_COG.tif",
+      "url": "/api/titiler/collections/thermal-diff-timeseries/items/TD-kumamoto-2026-07-27/tiles/WebMercatorQuad/{z}/{x}/{y}.png?assets=visual",
       "minZoom": 6,
       "maxZoom": 14,
       "metadata": {
-        "source": "eoAPI",
-        "description": "2018-2023年热异常时空演化趋势"
+        "source": "eoAPI STAC",
+        "collection": "thermal-diff-timeseries",
+        "itemId": "TD-kumamoto-2026-07-27",
+        "description": "真实地面热异常监测差值栅格"
       },
       "show": false,
-      "flyTo": false
+      "flyTo": false,
+      "rectangle": {
+        "xmin": 128.5,
+        "ymin": 30.5,
+        "xmax": 132.5,
+        "ymax": 34.5
+      }
     },
     {
       "id": 7070,
@@ -1031,40 +1033,97 @@
           {
             "title": "基本信息",
             "fields": [
-              { "label": "图层名称", "key": "name" },
-              { "label": "图层类型", "key": "type" },
-              { "label": "图层 ID", "key": "id" },
-              { "label": "数据来源", "key": "source" },
-              { "label": "STAC Item ID", "key": "itemId" },
-              { "label": "所属集合", "key": "collection" }
+              {
+                "label": "图层名称",
+                "key": "name"
+              },
+              {
+                "label": "图层类型",
+                "key": "type"
+              },
+              {
+                "label": "图层 ID",
+                "key": "id"
+              },
+              {
+                "label": "数据来源",
+                "key": "source"
+              },
+              {
+                "label": "STAC Item ID",
+                "key": "itemId"
+              },
+              {
+                "label": "所属集合",
+                "key": "collection"
+              }
             ]
           },
           {
             "title": "数据信息",
             "fields": [
-              { "label": "数据内容", "key": "dataContent" },
-              { "label": "数据格式", "key": "format" },
-              { "label": "数据时段", "key": "time" },
-              { "label": "源数据坐标系", "key": "crs" },
-              { "label": "像元分辨率", "key": "resolution" },
-              { "label": "栅格尺寸", "key": "rasterSize" },
-              { "label": "空间范围", "key": "extent" }
+              {
+                "label": "数据内容",
+                "key": "dataContent"
+              },
+              {
+                "label": "数据格式",
+                "key": "format"
+              },
+              {
+                "label": "数据时段",
+                "key": "time"
+              },
+              {
+                "label": "源数据坐标系",
+                "key": "crs"
+              },
+              {
+                "label": "像元分辨率",
+                "key": "resolution"
+              },
+              {
+                "label": "栅格尺寸",
+                "key": "rasterSize"
+              },
+              {
+                "label": "空间范围",
+                "key": "extent"
+              }
             ]
           },
           {
             "title": "数值信息",
             "fields": [
-              { "label": "像元值范围", "key": "valueRange" },
-              { "label": "平均值", "key": "mean" },
-              { "label": "标准差", "key": "standardDeviation" },
-              { "label": "数值单位", "key": "unitStatus" }
+              {
+                "label": "像元值范围",
+                "key": "valueRange"
+              },
+              {
+                "label": "平均值",
+                "key": "mean"
+              },
+              {
+                "label": "标准差",
+                "key": "standardDeviation"
+              },
+              {
+                "label": "数值单位",
+                "key": "unitStatus"
+              }
             ]
           },
           {
             "title": "数据说明",
             "fields": [
-              { "label": "时间形态", "key": "timeStructure" },
-              { "label": "使用说明", "key": "dataNote" }
+              {
+                "label": "时间形态",
+                "key": "timeStructure"
+              },
+              {
+                "label": "使用说明",
+                "key": "dataNote"
+              }
             ]
           }
         ]
@@ -1084,34 +1143,6 @@
         "crs": "EPSG:4326",
         "remark": "归一化差值植被指数图层"
       }
-    },
-    {
-      "pid": 5030,
-      "name": "Sentinel-2 NDVI",
-      "type": "xyz",
-      "url": "http://192.168.10.15:5955/cog/tiles/{z}/{x}/{y}@1x?url=/data/sentinel2/S2_NDVI_Yunnan_2023_COG.tif&rescale=-1,1&colormap_name=ndvi",
-      "minZoom": 8,
-      "maxZoom": 18,
-      "metadata": {
-        "source": "eoAPI titiler",
-        "description": "Sentinel-2 NDVI植被指数"
-      },
-      "show": false,
-      "flyTo": false
-    },
-    {
-      "pid": 5030,
-      "name": "NDVI变化率",
-      "type": "xyz",
-      "url": "http://192.168.10.15:5955/cog/tiles/{z}/{x}/{y}@1x?url=/data/sentinel2/S2_NDVI_trend_COG.tif&rescale=-0.2,0.2&colormap_name=rdbu",
-      "minZoom": 8,
-      "maxZoom": 18,
-      "metadata": {
-        "source": "eoAPI分析",
-        "description": "NDVI年度变化趋势"
-      },
-      "show": false,
-      "flyTo": false
     },
     {
       "id": 30,
@@ -1925,34 +1956,6 @@
       "type": "group"
     },
     {
-      "id": 802001,
-      "pid": 103,
-      "name": "房屋损毁热力图（fake_damage10，测试数据）",
-      "type": "xyz",
-      "url": "/api/titiler/collections/building-damage-assessment/items/HD-fake_damage10-01a19a99/tiles/WebMercatorQuad/{z}/{x}/{y}.png?assets=data&rescale=0,2.983392&colormap_name=ylorrd",
-      "minimumLevel": 0,
-      "maximumLevel": 24,
-      "rectangle": {
-        "xmin": 101.5805,
-        "ymin": 26.5875,
-        "xmax": 101.5835,
-        "ymax": 26.5905
-      },
-      "show": false,
-      "flyTo": true,
-      "hasOpacity": true,
-      "metadata": {
-        "detailProfile": "building-damage-heatmap",
-        "source": "eoAPI STAC / 房屋损毁评估",
-        "collection": "building-damage-assessment",
-        "itemId": "HD-fake_damage10-01a19a99",
-        "runTag": "fake_damage10",
-        "runId": "01a19a99-9ff8-8cd6-85a7-6f3a69325110",
-        "assessmentTime": "2026-11-02T05:00:48.176340Z",
-        "updatedAt": "2026-11-02T10:24:11Z"
-      }
-    },
-    {
       "id": 8050,
       "pid": 101,
       "name": "2017年九寨沟7.0级地震烈度圈",
@@ -2020,7 +2023,7 @@
       "pid": 102,
       "name": "道路中心线",
       "type": "mvt",
-      "url": "http://192.168.10.15:5953/collections/public.rs_road_vector_build/tiles/WebMercatorQuad/{z}/{x}/{y}?f=mvt",
+      "url": "/api/tipg/collections/public.rs_road_vector_build/tiles/WebMercatorQuad/{z}/{x}/{y}?f=mvt",
       "minimumLevel": 0,
       "maximumLevel": 18,
       "rectangle": {
@@ -2578,42 +2581,6 @@
       }
     },
     {
-      "id": 8010,
-      "pid": 80,
-      "name": "地震异常区域",
-      "type": "graphic",
-      "data": [],
-      "show": false,
-      "hasOpacity": true
-    },
-    {
-      "id": 8020,
-      "pid": 80,
-      "name": "房屋抗震能力",
-      "type": "graphic",
-      "data": [],
-      "show": false,
-      "hasOpacity": true
-    },
-    {
-      "id": 8030,
-      "pid": 80,
-      "name": "人员伤亡分布",
-      "type": "graphic",
-      "data": [],
-      "show": false,
-      "hasOpacity": true
-    },
-    {
-      "id": 8040,
-      "pid": 80,
-      "name": "经济损失",
-      "type": "graphic",
-      "data": [],
-      "show": false,
-      "hasOpacity": true
-    },
-    {
       "id": 90,
       "name": "高分辨率遥感数据",
       "type": "group"
@@ -2628,7 +2595,7 @@
       "pid": 91,
       "name": "2-9 光学真彩色",
       "type": "xyz",
-      "url": "http://192.168.10.15:5952/collections/fy3-mersi-l1/items/FY3H_MERSI_GRAN_L1_20260927_0700_1000M_V0/tiles/WebMercatorQuad/{z}/{x}/{y}.png?assets=visual",
+      "url": "/api/titiler/collections/fy3-mersi-l1/items/FY3H_MERSI_GRAN_L1_20260927_0700_1000M_V0/tiles/WebMercatorQuad/{z}/{x}/{y}.png?assets=visual",
       "rectangle": {
         "xmin": 73.44,
         "ymin": 20.9,
@@ -2651,7 +2618,7 @@
       "pid": 91,
       "name": "2-10 SAR 黑白",
       "type": "xyz",
-      "url": "http://192.168.10.15:5952/collections/sentinel-1-sar/items/S1A_IW_GRDH_1SDV_20260927T100000_DEMO/tiles/WebMercatorQuad/{z}/{x}/{y}.png?assets=visual&rescale=0,0.3&colormap_name=gray",
+      "url": "/api/titiler/collections/sentinel-1-sar/items/S1A_IW_GRDH_1SDV_20260927T100000_DEMO/tiles/WebMercatorQuad/{z}/{x}/{y}.png?assets=visual&rescale=0,0.3&colormap_name=gray",
       "rectangle": {
         "xmin": 103.2,
         "ymin": 35.6,
@@ -2674,7 +2641,7 @@
       "pid": 91,
       "name": "2-11 形变配色",
       "type": "xyz",
-      "url": "http://192.168.10.15:5952/collections/insar-deformation/items/DEF-20261009151058-2ccbd7/tiles/WebMercatorQuad/{z}/{x}/{y}.png?assets=visual",
+      "url": "/api/titiler/collections/insar-deformation/items/DEF-20261009151058-2ccbd7/tiles/WebMercatorQuad/{z}/{x}/{y}.png?assets=visual",
       "rectangle": {
         "xmin": 103.2,
         "ymin": 35.4,
@@ -2696,7 +2663,7 @@
       "pid": 91,
       "name": "2-12 热异常热力图",
       "type": "xyz",
-      "url": "http://192.168.10.15:5952/collections/thermal-diff-timeseries/items/TD-kumamoto-2026-07-11/tiles/WebMercatorQuad/{z}/{x}/{y}.png?assets=visual",
+      "url": "/api/titiler/collections/thermal-diff-timeseries/items/TD-kumamoto-2026-07-11/tiles/WebMercatorQuad/{z}/{x}/{y}.png?assets=visual",
       "rectangle": {
         "xmin": 128.5,
         "ymin": 30.5,
@@ -2712,6 +2679,200 @@
         "itemId": "TD-kumamoto-2026-07-11",
         "temporalRange": "2026-07-11",
         "description": "熊本热异常热力图；蓝色偏热，红色偏冷"
+      }
+    },
+    {
+      "id": 801001,
+      "pid": 80,
+      "name": "地震目录历史事件 (真实 26 条)",
+      "type": "geojson",
+      "url": "/api/tipg/collections/public.rs_real_earthquakes/items?limit=100",
+      "symbol": {
+        "type": "point",
+        "styleOptions": {
+          "color": "#ff4d4f",
+          "pixelSize": 10,
+          "outlineColor": "#ffffff",
+          "outlineWidth": 2
+        }
+      },
+      "popup": "地震ID：{earthquake_id}<br/>地点：{place_name}<br/>震级：M{magnitude}<br/>发震时间：{event_time}",
+      "rectangle": {
+        "xmin": 99.5,
+        "ymin": 23.0,
+        "xmax": 104.5,
+        "ymax": 33.5
+      },
+      "show": true,
+      "flyTo": true,
+      "metadata": {
+        "source": "PostGIS TiPG",
+        "collection": "public.rs_real_earthquakes"
+      }
+    },
+    {
+      "id": 801002,
+      "pid": 80,
+      "name": "地震热异常监测区域 (真实 5 处)",
+      "type": "geojson",
+      "url": "/api/tipg/collections/public.rs_real_geo_anomaly_areas/items?limit=100",
+      "symbol": {
+        "type": "polygon",
+        "styleOptions": {
+          "color": "#fa541c",
+          "opacity": 0.45,
+          "outline": true,
+          "outlineColor": "#ff4d4f",
+          "outlineWidth": 2,
+          "clampToGround": true
+        }
+      },
+      "popup": "任务：{task_name}<br/>日期：{date}<br/>峰值温差：{diff_max}℃<br/>持续天数：{consec_days}天",
+      "rectangle": {
+        "xmin": 102.1,
+        "ymin": 23.2,
+        "xmax": 102.5,
+        "ymax": 23.4
+      },
+      "show": true,
+      "flyTo": false,
+      "metadata": {
+        "source": "PostGIS TiPG",
+        "collection": "public.rs_real_geo_anomaly_areas"
+      }
+    },
+    {
+      "id": 801003,
+      "pid": 80,
+      "name": "热异常监测点位 (真实 199 点)",
+      "type": "geojson",
+      "url": "/api/tipg/collections/public.rs_real_geo_anomaly_points/items?limit=500",
+      "symbol": {
+        "type": "point",
+        "styleOptions": {
+          "color": "#faad14",
+          "pixelSize": 7,
+          "outlineColor": "#000000",
+          "outlineWidth": 1
+        }
+      },
+      "popup": "任务：{task_name}<br/>日期：{date}<br/>温差：{diff_c}℃<br/>异常等级：{severity}",
+      "show": false,
+      "flyTo": true,
+      "metadata": {
+        "source": "PostGIS TiPG",
+        "collection": "public.rs_real_geo_anomaly_points"
+      }
+    },
+    {
+      "id": 802001,
+      "pid": 103,
+      "name": "震后房屋损毁评估矢量 (真实 15,792 栋)",
+      "type": "mvt",
+      "url": "/api/tipg/collections/public.rs_real_building_damage/tiles/WebMercatorQuad/{z}/{x}/{y}?f=mvt",
+      "minimumLevel": 6,
+      "maximumLevel": 20,
+      "rectangle": {
+        "xmin": 100.4,
+        "ymin": 23.3,
+        "xmax": 103.8,
+        "ymax": 31.2
+      },
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "center": {
+        "lng": 103.6,
+        "lat": 30.96,
+        "alt": 12000,
+        "heading": 0,
+        "pitch": -90
+      },
+      "metadata": {
+        "detailProfile": "building-damage-heatmap",
+        "source": "PostGIS TiPG / p_e_loss.building_damage_detail",
+        "collection": "public.rs_real_building_damage",
+        "featureCount": "15,792"
+      }
+    },
+    {
+      "id": 802002,
+      "pid": 103,
+      "name": "房屋抗震脆弱性评估 (真实 122,579 栋)",
+      "type": "mvt",
+      "url": "/api/tipg/collections/public.rs_real_building_vulnerability/tiles/WebMercatorQuad/{z}/{x}/{y}?f=mvt",
+      "minimumLevel": 6,
+      "maximumLevel": 20,
+      "rectangle": {
+        "xmin": 100.6,
+        "ymin": 23.4,
+        "xmax": 106.2,
+        "ymax": 30.9
+      },
+      "show": false,
+      "flyTo": true,
+      "hasOpacity": true,
+      "center": {
+        "lng": 103.5,
+        "lat": 29.5,
+        "alt": 80000,
+        "heading": 0,
+        "pitch": -90
+      },
+      "metadata": {
+        "source": "PostGIS TiPG / seis_vuln.building_vulnerability",
+        "collection": "public.rs_real_building_vulnerability",
+        "featureCount": "122,579"
+      }
+    },
+    {
+      "id": 802003,
+      "pid": 103,
+      "name": "震后道路损毁评估线 (真实 13 段)",
+      "type": "geojson",
+      "url": "/api/tipg/collections/public.rs_real_road_damage/items?limit=100",
+      "symbol": {
+        "type": "polylineP",
+        "styleOptions": {
+          "color": "#eb2f96",
+          "width": 4,
+          "clampToGround": true
+        }
+      },
+      "popup": "道路等级：{road_level}<br/>损毁类型：{damage_type}<br/>通行能力：{traffic_capacity}<br/>说明：{description}",
+      "rectangle": {
+        "xmin": 99.7,
+        "ymin": 23.4,
+        "xmax": 100.8,
+        "ymax": 24.4
+      },
+      "show": false,
+      "flyTo": true,
+      "metadata": {
+        "source": "PostGIS TiPG / p_e_loss.road_damage_dtail",
+        "collection": "public.rs_real_road_damage"
+      }
+    },
+    {
+      "id": 802004,
+      "pid": 101,
+      "name": "地震观测台站 (真实)",
+      "type": "geojson",
+      "url": "/api/tipg/collections/public.seismic_stations/items?limit=100",
+      "symbol": {
+        "type": "point",
+        "styleOptions": {
+          "color": "#13c2c2",
+          "pixelSize": 9,
+          "outlineColor": "#ffffff",
+          "outlineWidth": 2
+        }
+      },
+      "show": false,
+      "flyTo": true,
+      "metadata": {
+        "source": "PostGIS TiPG",
+        "collection": "public.seismic_stations"
       }
     }
   ],

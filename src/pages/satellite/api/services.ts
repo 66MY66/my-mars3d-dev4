@@ -1,26 +1,21 @@
 /**
- * 数据管理 API 服务（eoAPI 版）
- * @description 五个板块映射到项目二 eoAPI：
- *  - 资源池 pool      → /datasets（按 tags/dataType 分组聚合的"存储池"视图）
- *  - 元数据 metadata  → /collections + /collections/{id}/items（STAC）
- *  - 数据目录 catalog → /collections（collection 即目录节点，父子按关键字分组）
- *  - 查询任务 query   → /search（STAC search，七组条件真生效）
- *  - 数据共享 share   → /datasets 的 visibility/publishStatus
+ * 数据管理 API 服务（eoAPI 全量对齐版）
+ * @description 五个板块全面对齐 eoAPI STAC + datasets + ground-station 台账：
+ *  - 资源池 pool      → 合并 /collections 与 /datasets 聚合真实资源池，并统计接入/产出/上传概览
+ *  - 元数据 metadata  → /collections + /collections/{id}/items + /search（STAC 全量条目）
+ *  - 数据目录 catalog → /collections + /search 实时计算每个目录真实 dataCount
+ *  - 查询任务 query   → /search（全量 1000 上限）
+ *  - 数据共享 share   → 合并 /collections 与 /datasets（46 集合全覆盖）
  */
 import {
   getCollectionsAll,
   getCollection,
   getItems,
   searchItems,
-  createDataset,
-  deleteDataset
+  createDataset
 } from "@mars/widgets/basic/dataset-repository/services/eoapi-datasets"
 import { eoapiGet } from "./client"
 import type { JeecgPage, SatelliteRecord } from "./types"
-
-function ok<T>(data: T): { success: true; data: T } {
-  return { success: true, data }
-}
 
 function pageOf(records: SatelliteRecord[], pageNo = 1, pageSize = 10): JeecgPage<SatelliteRecord> {
   const start = (pageNo - 1) * pageSize
@@ -32,49 +27,431 @@ function pageOf(records: SatelliteRecord[], pageNo = 1, pageSize = 10): JeecgPag
   }
 }
 
-// ============ 资源池：以 eoAPI 数据集聚合出"池"视图 ============
+function toTimestampMs(val: unknown): number {
+  if (typeof val === "number" && Number.isFinite(val)) { return val }
+  if (typeof val === "string" && val.trim()) {
+    const ms = new Date(val).getTime()
+    if (Number.isFinite(ms)) { return ms }
+  }
+  return 0
+}
+
+function toDateKey(val: unknown): string {
+  const ms = toTimestampMs(val)
+  if (!ms) { return "" }
+  const d = new Date(ms)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  return `${y}-${m}-${day}`
+}
+
+function toTimeLabel(val: unknown): string {
+  const ms = toTimestampMs(val)
+  if (!ms) { return "-" }
+  const d = new Date(ms)
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, "0")
+  const day = String(d.getDate()).padStart(2, "0")
+  const hh = String(d.getHours()).padStart(2, "0")
+  const mm = String(d.getMinutes()).padStart(2, "0")
+  return `${y}-${m}-${day} ${hh}:${mm}`
+}
+
+function formatBytes(bytes: unknown): string {
+  const n = Number(bytes)
+  if (!Number.isFinite(n) || n <= 0) { return "-" }
+  if (n < 1024) { return `${n} B` }
+  if (n < 1024 * 1024) { return `${(n / 1024).toFixed(1)} KB` }
+  if (n < 1024 * 1024 * 1024) { return `${(n / (1024 * 1024)).toFixed(1)} MB` }
+  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GB`
+}
+
+function inferCollectionFormat(col: Record<string, any> | undefined, ds: SatelliteRecord | undefined): string {
+  const explicit = String(
+    ds?.format ||
+    (ds?.summaries as SatelliteRecord)?.format ||
+    (col?.summaries as SatelliteRecord)?.format ||
+    ""
+  ).trim()
+  if (explicit && explicit !== "未知") {
+    return explicit
+  }
+  const cid = String(col?.id || ds?.datasetId || "").toLowerCase()
+  if (cid === "ground-station-l0") { return "PDS / HDF5" }
+  if (cid.includes("modis")) { return "HDF4" }
+  if (cid.includes("viirs") || cid.includes("atms")) { return "NetCDF4" }
+  if (cid.includes("fy3") || cid === "ground-station-l1") { return "HDF5" }
+  if (cid.includes("thermal") || cid.includes("optical") || cid.includes("sar") || cid.includes("insar") || cid.includes("fy-")) { return "GeoTIFF" }
+  if (cid.includes("geohazard") || cid.includes("damage") || cid.includes("road") || cid.includes("spatial-thematic")) { return "GeoJSON" }
+  if (cid.includes("report") || cid.includes("thematic-map")) { return "专题报告/图件" }
+  return "STAC"
+}
+
+function inferPoolName(col: Record<string, any> | undefined, ds: SatelliteRecord | undefined): string {
+  const tags = Array.isArray(ds?.tags) ? (ds?.tags as string[]).filter(Boolean) : []
+  if (tags.length > 0) {
+    return String(tags[0])
+  }
+  const cid = String(col?.id || ds?.datasetId || "").toLowerCase()
+  if (cid === "ground-station-l0") {
+    return "地面站原始数据池"
+  }
+  if (
+    cid.includes("modis") ||
+    cid.includes("viirs") ||
+    cid.includes("atms") ||
+    cid.includes("fy3") ||
+    cid.includes("gf-") ||
+    cid.includes("sentinel") ||
+    cid.includes("insar") ||
+    cid === "ground-station-l1"
+  ) {
+    return "卫星遥感标准产品池"
+  }
+  if (cid.includes("thermal") || cid === "fy-thermal") {
+    return "热红外与地震异常监测池"
+  }
+  if (
+    cid.includes("report") ||
+    cid.includes("damage") ||
+    cid.includes("geohazard") ||
+    cid.includes("road") ||
+    cid.includes("spatial-thematic") ||
+    cid.includes("thematic-map") ||
+    cid === "earthquake_lab_demo" ||
+    cid === "satellite-data-center"
+  ) {
+    return "灾情评估与专题产品池"
+  }
+  return "自定义数据集池"
+}
+
+function inferMetadataType(item: { collection?: string; properties?: Record<string, any> }): string {
+  const cid = String(item.collection || "").toLowerCase()
+  const level = String(item.properties?.["processing:level"] || "").toUpperCase()
+  const inst = String(item.properties?.instruments?.[0] || item.properties?.sensor || "").toLowerCase()
+  if (cid === "ground-station-l0" || level === "L0") { return "原始L0" }
+  if (cid.includes("sar") || cid.includes("sentinel-1") || cid.includes("insar") || inst.includes("sar")) { return "SAR" }
+  if (cid.includes("thermal") || cid === "fy-thermal") { return "热红外" }
+  if (cid.includes("modis") || cid.includes("viirs") || cid.includes("atms") || cid.includes("fy3") || cid.includes("optical") || cid === "ground-station-l1") {
+    return "光学"
+  }
+  return "专题数据"
+}
+
+function inferAccessCategory(colId: string): string {
+  const cid = colId.toLowerCase()
+  if (cid === "ground-station-l0") { return "地面站卫星原始数据" }
+  if (cid.includes("thermal") || cid === "fy-thermal") { return "热红外监测数据" }
+  if (
+    cid.includes("modis") ||
+    cid.includes("viirs") ||
+    cid.includes("atms") ||
+    cid.includes("fy3") ||
+    cid.includes("optical") ||
+    cid.includes("sentinel") ||
+    cid.includes("insar") ||
+    cid === "ground-station-l1"
+  ) {
+    return "卫星遥感标准产品"
+  }
+  return "地震灾情与专题数据"
+}
+
+function inferOutputCategory(colId: string): { category: string; subsystem: string; content: string } {
+  const cid = colId.toLowerCase()
+  if (cid.includes("thermal") || cid === "fy-thermal" || cid.includes("geohazard")) {
+    return { category: "热红外异常监测成果", subsystem: "中短期宏观异常监测子系统", content: "热红外/异常监测成果" }
+  }
+  if (cid.includes("report") || cid.includes("damage") || cid.includes("road")) {
+    return { category: "灾情与评估报告", subsystem: "损失评估子系统", content: "灾情评估报告/损毁图斑" }
+  }
+  if (
+    cid.includes("modis") ||
+    cid.includes("viirs") ||
+    cid.includes("atms") ||
+    cid.includes("fy3") ||
+    cid.includes("optical") ||
+    cid.includes("sentinel") ||
+    cid.includes("insar") ||
+    cid.startsWith("ground-station-")
+  ) {
+    return { category: "卫星遥感标准数据", subsystem: "地面站子系统", content: "标准化遥感影像产品" }
+  }
+  return { category: "空间专题与自定义成果", subsystem: "地震数据灾备与大数据管理子系统", content: "专题图层/自定义数据集" }
+}
+
+async function fetchCollectionsAndDatasets() {
+  const [colsRes, dsRes, itemsRes] = await Promise.all([
+    getCollectionsAll({ limit: 200 }).catch(() => ({ success: false as const, data: undefined, message: "collections 请求失败" })),
+    eoapiGet<SatelliteRecord[]>("/datasets", { params: { limit: 200 } }).catch(() => ({ success: false as const, data: undefined, message: "datasets 请求失败" })),
+    searchItems({ limit: 1000 }).catch(() => ({ success: false as const, data: undefined, message: "items 检索失败" }))
+  ])
+  if (!colsRes.success && !dsRes.success) {
+    throw new Error(colsRes.message || dsRes.message || "eoAPI 数据集获取失败")
+  }
+  const collections = Array.isArray(colsRes.data) ? (colsRes.data as unknown as Record<string, any>[]) : []
+  const datasets = Array.isArray(dsRes.data) ? (dsRes.data as unknown as SatelliteRecord[]) : []
+  const items = Array.isArray(itemsRes.data) ? (itemsRes.data as unknown as Record<string, any>[]) : []
+  return { collections, datasets, items }
+}
+
+function addPercent(categories: Array<{ name: string; color: string; count: number; dailyMap: Record<string, number> }>) {
+  const total = categories.reduce((s, c) => s + c.count, 0)
+  return categories.map((c) => ({
+    ...c,
+    percent: total > 0 ? Math.round((c.count / total) * 100) : 0,
+    daily: [] as number[]
+  }))
+}
+
+// ============ 资源池：合并 eoAPI STAC collections 与 datasets ============
 
 export const poolApi = {
   async list(params: Record<string, unknown> = {}): Promise<JeecgPage<SatelliteRecord>> {
-    const res = await eoapiGet<SatelliteRecord[]>("/datasets", { params: { limit: 200 } })
-    if (!res.success || !res.data) { throw new Error(res.message || "数据集列表获取失败") }
-    const datasets = res.data as SatelliteRecord[]
-    // 按第一个 tag 聚合成池；无 tag 的归"默认池"
-    const byTag = new Map<string, SatelliteRecord[]>()
-    for (const d of datasets) {
-      const tags = Array.isArray(d.tags) ? (d.tags as string[]) : []
-      const key = tags[0] || "默认池"
-      const list = byTag.get(key) || []
-      list.push(d)
-      byTag.set(key, list)
+    const { collections, datasets, items } = await fetchCollectionsAndDatasets()
+
+    const itemCountByCol = new Map<string, number>()
+    const platformsByCol = new Map<string, Set<string>>()
+    for (const it of items) {
+      const cid = String(it.collection || "")
+      if (!cid) { continue }
+      itemCountByCol.set(cid, (itemCountByCol.get(cid) || 0) + 1)
+      const plat = String(it.properties?.platform || "").trim()
+      if (plat) {
+        if (!platformsByCol.has(cid)) { platformsByCol.set(cid, new Set()) }
+        platformsByCol.get(cid)?.add(plat)
+      }
     }
-    const pools: SatelliteRecord[] = Array.from(byTag.entries()).map(([tag, list]) => ({
-      id: `pool_${tag}`,
-      poolName: tag,
-      // 真实指标：池内数据集数 / STAC 条目数（并行查询）
-      totalCapacity: list.length,
-      usedCapacity: 0,
-      itemCount: 0,
-      dataFormat: "多源",
-      satellites: Array.from(new Set(list.map((d) => String(d.name || "").split("-")[0]).filter(Boolean))).join(","),
-      status: "正常",
-      dataType: "数据集",
-      createdAt: Math.min(...list.map((d) => Number(d.createdAt) || Date.now()))
-    }))
-    // 并行取每个池的 STAC 条目数（items 接口不返回 numberMatched，直接数 features，limit 100 封顶）
-    await Promise.all(pools.map(async (pool) => {
-      const list = byTag.get(String(pool.poolName)) || []
-      const counts = await Promise.all(list.map(async (d) => {
-        try {
-          const r = await eoapiGet<{ features?: unknown[] }>(`/collections/${d.datasetId}/items`, { params: { limit: 100 } })
-          return (r.data?.features || []).length
-        } catch { return 0 }
-      }))
-      pool.itemCount = counts.reduce((a, b) => a + b, 0)
-      pool.usedCapacity = pool.itemCount
-    }))
-    return pageOf(pools, Number(params.pageNo) || 1, Number(params.pageSize) || 10)
+
+    const dsById = new Map<string, SatelliteRecord>()
+    for (const d of datasets) {
+      const did = String(d.datasetId || d.id || "")
+      if (did) { dsById.set(did, d) }
+    }
+
+    type PoolEntry = {
+      id: string
+      title: string
+      format: string
+      itemCount: number
+      platforms: string[]
+      createdAtMs: number
+    }
+    const byPool = new Map<string, PoolEntry[]>()
+    const seen = new Set<string>()
+
+    const pushEntry = (poolName: string, entry: PoolEntry) => {
+      const arr = byPool.get(poolName) || []
+      arr.push(entry)
+      byPool.set(poolName, arr)
+    }
+
+    for (const col of collections) {
+      const cid = String(col.id || "")
+      if (!cid || seen.has(cid)) { continue }
+      seen.add(cid)
+      const ds = dsById.get(cid)
+      const poolName = inferPoolName(col, ds)
+      const temporalStart = Array.isArray(col.extent?.temporal?.interval?.[0]) ? col.extent.temporal.interval[0][0] : ""
+      const createdAtMs = toTimestampMs(ds?.createdAt ?? (col.summaries as SatelliteRecord)?.createdAt ?? temporalStart)
+      const colPlats = Array.from(platformsByCol.get(cid) || [])
+      pushEntry(poolName, {
+        id: cid,
+        title: String(ds?.name || col.title || cid),
+        format: inferCollectionFormat(col, ds),
+        itemCount: itemCountByCol.get(cid) || 0,
+        platforms: colPlats,
+        createdAtMs
+      })
+    }
+
+    for (const d of datasets) {
+      const did = String(d.datasetId || d.id || "")
+      if (!did || seen.has(did)) { continue }
+      seen.add(did)
+      const poolName = inferPoolName(undefined, d)
+      pushEntry(poolName, {
+        id: did,
+        title: String(d.name || did),
+        format: inferCollectionFormat(undefined, d),
+        itemCount: itemCountByCol.get(did) || 0,
+        platforms: Array.from(platformsByCol.get(did) || []),
+        createdAtMs: toTimestampMs(d.createdAt)
+      })
+    }
+
+    const pools: SatelliteRecord[] = Array.from(byPool.entries()).map(([poolName, list]) => {
+      const totalItems = list.reduce((s, e) => s + e.itemCount, 0)
+      const formats = Array.from(new Set(list.map((e) => e.format).filter(Boolean)))
+      const satSet = new Set<string>()
+      for (const e of list) {
+        for (const p of e.platforms) { satSet.add(p) }
+      }
+      if (satSet.size === 0) {
+        for (const e of list.slice(0, 5)) { satSet.add(e.title) }
+      }
+      const times = list.map((e) => e.createdAtMs).filter((t) => t > 0)
+      return {
+        id: `pool_${poolName}`,
+        poolName,
+        totalCapacity: list.length,
+        usedCapacity: totalItems,
+        itemCount: totalItems,
+        dataFormat: formats.slice(0, 3).join("/") || "STAC",
+        satellites: Array.from(satSet).slice(0, 8).join(","),
+        status: "正常",
+        dataType: "eoAPI 资源池",
+        createdAt: times.length ? Math.min(...times) : Date.now()
+      }
+    })
+
+    pools.sort((a, b) => (Number(b.itemCount) || 0) - (Number(a.itemCount) || 0))
+    return pageOf(pools, Number(params.pageNo) || 1, Number(params.pageSize) || 100)
   },
+
+  async getOverviewStats() {
+    const [{ collections, datasets, items }, gsRes] = await Promise.all([
+      fetchCollectionsAndDatasets(),
+      fetch("/api/ground-station/tasks?limit=200")
+        .then((r) => (r.ok ? r.json() : { tasks: [] }))
+        .catch(() => ({ tasks: [] }))
+    ])
+    const colMap = new Map<string, Record<string, any>>()
+    for (const c of collections) { colMap.set(String(c.id || ""), c) }
+    const dsMap = new Map<string, SatelliteRecord>()
+    for (const d of datasets) { dsMap.set(String(d.datasetId || d.id || ""), d) }
+    const gsTasks = Array.isArray(gsRes?.tasks) ? (gsRes.tasks as Record<string, any>[]) : []
+
+    const accessMap: Record<string, { name: string; color: string; count: number; dailyMap: Record<string, number> }> = {
+      地面站卫星原始数据: { name: "地面站卫星原始数据", color: "#5B8FF9", count: 0, dailyMap: {} },
+      卫星遥感标准产品: { name: "卫星遥感标准产品", color: "#61DDAA", count: 0, dailyMap: {} },
+      热红外监测数据: { name: "热红外监测数据", color: "#65789B", count: 0, dailyMap: {} },
+      地震灾情与专题数据: { name: "地震灾情与专题数据", color: "#F6BD16", count: 0, dailyMap: {} }
+    }
+    const outputMap: Record<string, { name: string; color: string; count: number; dailyMap: Record<string, number> }> = {
+      卫星遥感标准数据: { name: "卫星遥感标准数据", color: "#5B8FF9", count: 0, dailyMap: {} },
+      热红外异常监测成果: { name: "热红外异常监测成果", color: "#61DDAA", count: 0, dailyMap: {} },
+      灾情与评估报告: { name: "灾情与评估报告", color: "#65789B", count: 0, dailyMap: {} },
+      空间专题与自定义成果: { name: "空间专题与自定义成果", color: "#F6BD16", count: 0, dailyMap: {} }
+    }
+    const uploadMap: Record<string, { name: string; color: string; count: number; dailyMap: Record<string, number> }> = {
+      "地面站原始数据(L0)": { name: "地面站原始数据(L0)", color: "#5B8FF9", count: 0, dailyMap: {} },
+      "地面站预处理成果(L1)": { name: "地面站预处理成果(L1)", color: "#61DDAA", count: 0, dailyMap: {} },
+      自定义上传数据集: { name: "自定义上传数据集", color: "#65789B", count: 0, dailyMap: {} }
+    }
+
+    const accessRecordsAll: SatelliteRecord[] = []
+    const outputRecordsAll: SatelliteRecord[] = []
+    const uploadRecordsAll: SatelliteRecord[] = []
+
+    const sortedItems = [...items].sort((a, b) => {
+      const tb = toTimestampMs(b.properties?.updated || b.properties?.datetime)
+      const ta = toTimestampMs(a.properties?.updated || a.properties?.datetime)
+      return tb - ta
+    })
+
+    for (const it of sortedItems) {
+      const cid = String(it.collection || "")
+      const col = colMap.get(cid)
+      const ds = dsMap.get(cid)
+      const fmt = String(it.properties?.["product:format"] || inferCollectionFormat(col, ds))
+      const dtVal = it.properties?.updated || it.properties?.datetime || ds?.createdAt || ""
+      const dateKey = toDateKey(dtVal)
+      const timeLabel = toTimeLabel(dtVal)
+      const title = String(it.properties?.title || it.id || cid)
+      const srcLabel = cid.startsWith("ground-station") || String(it.properties?.["product:source"] || "") === "ground-station"
+        ? "卫星地面站"
+        : "eoAPI STAC 编目中心"
+
+      const accCat = inferAccessCategory(cid)
+      accessMap[accCat].count += 1
+      if (dateKey) { accessMap[accCat].dailyMap[dateKey] = (accessMap[accCat].dailyMap[dateKey] || 0) + 1 }
+      accessRecordsAll.push({
+        id: `acc-${cid}-${it.id}`,
+        name: title,
+        collection: cid,
+        source: srcLabel,
+        time: timeLabel,
+        format: fmt,
+        status: "已接入"
+      })
+
+      const outInfo = inferOutputCategory(cid)
+      outputMap[outInfo.category].count += 1
+      if (dateKey) { outputMap[outInfo.category].dailyMap[dateKey] = (outputMap[outInfo.category].dailyMap[dateKey] || 0) + 1 }
+      outputRecordsAll.push({
+        id: `out-${cid}-${it.id}`,
+        name: title,
+        collection: cid,
+        module: outInfo.subsystem,
+        time: timeLabel,
+        content: outInfo.content,
+        format: fmt,
+        sent: "是"
+      })
+    }
+
+    for (const t of gsTasks) {
+      const stage = String(t.data_stage || "processed")
+      const cat = stage === "raw" ? "地面站原始数据(L0)" : "地面站预处理成果(L1)"
+      const dtVal = t.updated_at || t.created_at || ""
+      const dateKey = toDateKey(dtVal)
+      uploadMap[cat].count += 1
+      if (dateKey) { uploadMap[cat].dailyMap[dateKey] = (uploadMap[cat].dailyMap[dateKey] || 0) + 1 }
+      const st = String(t.status || "")
+      const statusLabelMap: Record<string, string> = { completed: "已编目", failed: "异常隔离", quarantined: "异常隔离", triggered: "处理中" }
+      const stLabel = statusLabelMap[st] || "已上传"
+      uploadRecordsAll.push({
+        id: `up-gs-${t.batch_id}-${t.filename}`,
+        name: String(t.filename || t.batch_id || ""),
+        source: `${String(t.satellite || "GENERAL")} (${stage === "raw" ? "L0" : "L1"})`,
+        interactionObject: "卫星地面站",
+        time: toTimeLabel(dtVal),
+        size: formatBytes(t.file_size),
+        format: String(t.filename || "").split(".").pop()?.toUpperCase() || "FILE",
+        status: stLabel
+      })
+    }
+
+    for (const d of datasets) {
+      const did = String(d.datasetId || d.id || "")
+      const dtVal = d.createdAt || ""
+      const dateKey = toDateKey(dtVal)
+      uploadMap["自定义上传数据集"].count += 1
+      if (dateKey) { uploadMap["自定义上传数据集"].dailyMap[dateKey] = (uploadMap["自定义上传数据集"].dailyMap[dateKey] || 0) + 1 }
+      uploadRecordsAll.push({
+        id: `up-ds-${did}`,
+        name: String(d.name || did),
+        source: "数据集仓库",
+        interactionObject: "运行支撑与管理调度软件",
+        time: toTimeLabel(dtVal),
+        size: "-",
+        format: inferCollectionFormat(colMap.get(did), d),
+        status: d.publishStatus === "published" ? "已发布" : "待发布"
+      })
+    }
+
+    const nowMs = Date.now()
+    const weekAgoMs = nowMs - 7 * 86400 * 1000
+    const splitByWeek = (rows: SatelliteRecord[]) => {
+      const weekRows = rows.filter((r) => toTimestampMs(r.time) >= weekAgoMs)
+      return { month: rows, week: weekRows.length > 0 ? weekRows : rows.slice(0, 20) }
+    }
+
+    return {
+      accessCategories: addPercent(Object.values(accessMap)),
+      outputCategories: addPercent(Object.values(outputMap)),
+      uploadCategories: addPercent(Object.values(uploadMap)),
+      records: {
+        access: splitByWeek(accessRecordsAll),
+        output: splitByWeek(outputRecordsAll),
+        upload: splitByWeek(uploadRecordsAll)
+      }
+    }
+  },
+
   async get(id: string): Promise<SatelliteRecord> {
     const page = await poolApi.list({ pageNo: 1, pageSize: 200 })
     const found = page.records.find((r) => String(r.id) === String(id))
@@ -99,12 +476,6 @@ export const poolApi = {
 }
 
 // ============ 元数据：STAC items ============
-// 真实数据 = pgSTAC 条目；"编辑"= 更新条目属性（title/datetime/bbox）；
-// "验证"= 校验条目必备字段（id/collection/datetime/bbox/geometry）
-
-/** STAC item 更新走 datasets-api 的 revision 通道不可行，直连 STAC 也不支持 PATCH；
- *  实际可写通道：datasets-api 无 item 更新端点 → 编辑功能标记为"仅 title/datetime"通过重新编目实现。
- *  ponytail: pgSTAC 未开 PATCH /items，编辑暂只改展示层草稿（localStorage），后端开启后切直写。 */
 
 const METADATA_EDIT_DRAFT_KEY = "satellite_metadata_edits"
 
@@ -124,9 +495,8 @@ function saveMetadataEdit(itemId: string, patch: Record<string, unknown>) {
 
 export const metadataApi = {
   async list(params: Record<string, unknown> = {}): Promise<JeecgPage<SatelliteRecord>> {
-    const limit = Number(params.pageSize) || 10
-    const offset = ((Number(params.pageNo) || 1) - 1) * limit
-    // 未指定 collection 时跨全部数据集检索（STAC /search）
+    const limit = Math.max(Number(params.pageSize) || 1000, 1000)
+    const offset = ((Number(params.pageNo) || 1) - 1) * (Number(params.pageSize) || 10)
     const collectionId = String(params.collectionId || "")
     let items: SatelliteRecord[]
     if (collectionId) {
@@ -151,20 +521,19 @@ export const metadataApi = {
         title,
         satellite,
         sensor: String(item.properties?.instruments?.[0] ?? item.properties?.sensor ?? "—"),
-        dataType: item.properties?.gsd != null ? "栅格" : "数据",
+        dataType: inferMetadataType(item),
         resolution: edit.resolution ?? item.properties?.gsd ?? "—",
         acquisitionTime: String(edit.acquisitionTime ?? item.properties?.datetime ?? ""),
         region: Array.isArray(item.bbox) ? item.bbox.map((n: number) => Number(n.toFixed(4))).join(", ") : "—",
         bbox: item.bbox,
-        // 验证状态：条目必备字段齐全 = 已验证（真实校验结果，非人工标记）
         status: item.id && item.collection && item.properties?.datetime && Array.isArray(item.bbox) ? "已验证" : "未验证",
         _raw: item
       }
     })
-    // 客户端过滤（satellite/dataType/dateRange）
     let filtered = records
     if (params.satellite) {
-      filtered = filtered.filter((r) => String(r.satellite).includes(String(params.satellite)))
+      const targetSat = String(params.satellite).toLowerCase()
+      filtered = filtered.filter((r) => String(r.satellite).toLowerCase().includes(targetSat))
     }
     if (params.dataType) {
       filtered = filtered.filter((r) => r.dataType === params.dataType)
@@ -184,10 +553,6 @@ export const metadataApi = {
     if (!res.success || !res.data) { throw new Error(res.message || "元数据获取失败") }
     return res.data as unknown as SatelliteRecord
   },
-  /**
-   * 编辑元数据：可写字段 = 标题/卫星/分辨率/获取时间（本地编辑草稿，叠加在真实数据上展示）
-   * ponytail: pgSTAC 不支持 PATCH items，落 localStorage 草稿；后端补端点后切换直写。
-   */
   async edit(record: SatelliteRecord): Promise<string> {
     const id = String(record.id || `${record.collectionId}/${record.metadataId}`)
     if (!id.includes("/")) { throw new Error("元数据标识缺失") }
@@ -199,7 +564,6 @@ export const metadataApi = {
     })
     return id
   },
-  /** 验证：真实校验条目 STAC 必备字段，返回缺失项 */
   async validate(record: SatelliteRecord): Promise<{ valid: boolean; missing: string[] }> {
     const raw = (record._raw || record) as { id?: string; collection?: string; properties?: Record<string, any>; bbox?: number[]; geometry?: unknown }
     const missing: string[] = []
@@ -214,18 +578,28 @@ export const metadataApi = {
   async exportExcel(): Promise<Blob> { throw new Error("导出功能开发中") }
 }
 
-// ============ 数据目录：STAC collections ============
+// ============ 数据目录：STAC collections（含实时 dataCount） ============
 
 export const catalogApi = {
   async list(params: Record<string, unknown> = {}): Promise<JeecgPage<SatelliteRecord>> {
-    const res = await getCollectionsAll({ limit: 200 })
-    if (!res.success || !res.data) { throw new Error(res.message || "目录获取失败") }
-    const nodes: SatelliteRecord[] = (res.data as unknown as SatelliteRecord[]).map((c) => ({
+    const [colRes, itemsRes] = await Promise.all([
+      getCollectionsAll({ limit: 200 }),
+      searchItems({ limit: 1000 }).catch(() => ({ success: false as const, data: undefined }))
+    ])
+    if (!colRes.success || !colRes.data) { throw new Error(colRes.message || "目录获取失败") }
+    const countMap = new Map<string, number>()
+    if (itemsRes.success && Array.isArray(itemsRes.data)) {
+      for (const it of itemsRes.data) {
+        const cid = String(it.collection || "")
+        if (cid) { countMap.set(cid, (countMap.get(cid) || 0) + 1) }
+      }
+    }
+    const nodes: SatelliteRecord[] = (colRes.data as unknown as SatelliteRecord[]).map((c) => ({
       id: c.id,
       name: c.title || c.id,
       parentId: "",
       level: 0,
-      dataCount: 0,
+      dataCount: countMap.get(String(c.id)) || 0,
       status: "正常",
       isLeaf: true,
       description: c.description || "",
@@ -252,38 +626,97 @@ export const queryTaskApi = {
       collections: params.collectionId ? [String(params.collectionId)] : undefined,
       bbox: Array.isArray(params.bbox) && params.bbox.length === 4 ? (params.bbox as [number, number, number, number]) : undefined,
       datetime: params.datetime ? String(params.datetime) : undefined,
-      limit: Number(params.pageSize) || 50,
+      limit: Number(params.pageSize) || 500,
       query: params.query as Record<string, any> | undefined
     })
     if (!res.success || !res.data) { throw new Error(res.message || "查询失败") }
-    return { records: res.data as unknown as SatelliteRecord[], total: (res.data as unknown as SatelliteRecord[]).length, current: 1, size: Number(params.pageSize) || 50 }
+    return { records: res.data as unknown as SatelliteRecord[], total: (res.data as unknown as SatelliteRecord[]).length, current: 1, size: Number(params.pageSize) || 500 }
   },
   async add(): Promise<string> { throw new Error("查询由 /search 即时执行，不保存任务") },
   async exportExcel(): Promise<Blob> { throw new Error("导出功能开发中") }
 }
 
-// ============ 数据共享：datasets visibility ============
+// ============ 数据共享：合并 eoAPI STAC collections 与 datasets 元数据 ============
 
 export const shareApi = {
   async list(params: Record<string, unknown> = {}): Promise<JeecgPage<SatelliteRecord>> {
-    const res = await eoapiGet<SatelliteRecord[]>("/datasets", { params: { limit: 200 } })
-    if (!res.success || !res.data) { throw new Error(res.message || "数据集列表获取失败") }
-    const shares: SatelliteRecord[] = (res.data as unknown as SatelliteRecord[])
-      .filter((d) => String(d.visibility || "") !== "")
-      .map((d) => ({
-      id: d.datasetId,
-        datasetName: d.name,
-        dataId: d.datasetId,
-        dataName: d.name,
-        description: d.description || "暂无描述",
-        format: d.format || (d.summaries as SatelliteRecord)?.format || "未知",
-        shareType: d.visibility === "public" ? "共享" : "私人",
-        permissions: d.visibility === "public" ? ["查看"] : [],
+    const [colsRes, dsRes] = await Promise.all([
+      getCollectionsAll({ limit: 200 }).catch(() => ({ success: false as const, data: undefined, message: "collections 请求失败" })),
+      eoapiGet<SatelliteRecord[]>("/datasets", { params: { limit: 200 } }).catch(() => ({ success: false as const, data: undefined, message: "datasets 请求失败" }))
+    ])
+    if (!colsRes.success && !dsRes.success) {
+      throw new Error(colsRes.message || dsRes.message || "共享数据集列表获取失败")
+    }
+
+    const collections = Array.isArray(colsRes.data) ? (colsRes.data as unknown as Record<string, any>[]) : []
+    const datasets = Array.isArray(dsRes.data) ? (dsRes.data as unknown as SatelliteRecord[]) : []
+    const dsById = new Map<string, SatelliteRecord>()
+    for (const d of datasets) {
+      const did = String(d.datasetId || d.id || "")
+      if (did) { dsById.set(did, d) }
+    }
+
+    const merged: SatelliteRecord[] = []
+    const seen = new Set<string>()
+
+    for (const col of collections) {
+      const cid = String(col.id || "")
+      if (!cid || seen.has(cid)) { continue }
+      seen.add(cid)
+      const ds = dsById.get(cid)
+      const colVisibility = String((col.summaries as SatelliteRecord)?.visibility || "public")
+      const effectiveVis = ds ? String(ds.visibility || "private") : colVisibility
+      const isPublic = effectiveVis === "public"
+      const isPublished = ds ? String(ds.publishStatus || "") === "published" : true
+      const temporalStart = Array.isArray(col.extent?.temporal?.interval?.[0]) ? col.extent.temporal.interval[0][0] : ""
+      const createdAt = ds?.createdAt ?? (col.summaries as SatelliteRecord)?.createdAt ?? (temporalStart || "")
+      merged.push({
+        id: cid,
+        datasetName: String(ds?.name || col.title || cid),
+        dataId: cid,
+        dataName: String(ds?.name || col.title || cid),
+        description: String(ds?.description || col.description || "eoAPI STAC 数据集合"),
+        format: inferCollectionFormat(col, ds),
+        shareType: isPublic ? "共享" : "私人",
+        permissions: isPublic ? ["查看"] : [],
         authTarget: [],
-        status: d.publishStatus === "published" ? "已发布" : "未发布",
-        createdAt: d.createdAt
-      }))
-    return pageOf(shares, Number(params.pageNo) || 1, Number(params.pageSize) || 10)
+        status: isPublished ? "已发布" : "未发布",
+        createdAt,
+        source: ds ? "eoapi-merged" : "eoapi-stac"
+      })
+    }
+
+    for (const d of datasets) {
+      const did = String(d.datasetId || d.id || "")
+      if (!did || seen.has(did)) { continue }
+      seen.add(did)
+      const isPublic = String(d.visibility || "") === "public"
+      const isPublished = String(d.publishStatus || "") === "published"
+      merged.push({
+        id: did,
+        datasetName: String(d.name || did),
+        dataId: did,
+        dataName: String(d.name || did),
+        description: String(d.description || "暂无描述"),
+        format: inferCollectionFormat(undefined, d),
+        shareType: isPublic ? "共享" : "私人",
+        permissions: isPublic ? ["查看"] : [],
+        authTarget: [],
+        status: isPublished ? "已发布" : "未发布",
+        createdAt: d.createdAt || "",
+        source: "eoapi-datasets"
+      })
+    }
+
+    merged.sort((a, b) => {
+      const pubDiff = (b.status === "已发布" ? 1 : 0) - (a.status === "已发布" ? 1 : 0)
+      if (pubDiff !== 0) { return pubDiff }
+      const timeDiff = toTimestampMs(b.createdAt) - toTimestampMs(a.createdAt)
+      if (timeDiff !== 0) { return timeDiff }
+      return String(a.dataName || "").localeCompare(String(b.dataName || ""), "zh-CN")
+    })
+
+    return pageOf(merged, Number(params.pageNo) || 1, Number(params.pageSize) || 500)
   },
   async add(): Promise<string> { throw new Error("共享通过数据集可见性设置管理") },
   async edit(): Promise<string> { throw new Error("共享通过数据集可见性设置管理") },

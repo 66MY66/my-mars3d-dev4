@@ -285,7 +285,6 @@ export default {
       // 我的共享
       mySharedData: [],
       myShareFilters: { keyword: "", dateRange: [], format: undefined },
-      myShareFormats: ["GeoJSON", "GeoTIFF", "SHP", "CSV", "未知"],
       myShareColumns: [
         { title: "数据集名称", dataIndex: "dataName", key: "dataName", ellipsis: true },
         { title: "内容描述", dataIndex: "description", key: "description", ellipsis: true },
@@ -297,7 +296,6 @@ export default {
       // 共享给我的
       sharedToMeData: [],
       sharedToMeFilters: { keyword: "", dateRange: [], format: undefined },
-      sharedToMeFormats: ["GeoJSON", "GeoTIFF", "SHP", "CSV", "未知"],
       sharedToMeColumns: [
         { title: "数据集名称", dataIndex: "dataName", key: "dataName", ellipsis: true },
         { title: "内容描述", dataIndex: "description", key: "description", ellipsis: true },
@@ -327,13 +325,19 @@ export default {
     this.loadSharedToMeData()
   },
   computed: {
+    myShareFormats() {
+      return Array.from(new Set(this.mySharedData.map((item) => item.format).filter(Boolean)))
+    },
+    sharedToMeFormats() {
+      return Array.from(new Set(this.sharedToMeData.map((item) => item.format).filter(Boolean)))
+    },
     filteredMySharedData() {
       const keyword = String(this.myShareFilters.keyword || "").trim().toLowerCase()
       const [start, end] = this.myShareFilters.dateRange || []
       return this.mySharedData.filter((item) => {
         const textMatch = !keyword || `${item.dataName || ""} ${item.description || ""}`.toLowerCase().includes(keyword)
-        const date = item.createdAt ? new Date(item.createdAt).toISOString().slice(0, 10) : ""
-        const dateMatch = (!start || date >= start) && (!end || date <= end)
+        const date = this.safeDateKey(item.createdAt)
+        const dateMatch = (!start || (date && date >= start)) && (!end || (date && date <= end))
         const formatMatch = !this.myShareFilters.format || item.format === this.myShareFilters.format
         return textMatch && dateMatch && formatMatch
       })
@@ -343,8 +347,8 @@ export default {
       const [start, end] = this.sharedToMeFilters.dateRange || []
       return this.sharedToMeData.filter((item) => {
         const textMatch = !keyword || `${item.dataName || ""} ${item.description || ""}`.toLowerCase().includes(keyword)
-        const date = item.createdAt ? new Date(item.createdAt).toISOString().slice(0, 10) : ""
-        const dateMatch = (!start || date >= start) && (!end || date <= end)
+        const date = this.safeDateKey(item.createdAt)
+        const dateMatch = (!start || (date && date >= start)) && (!end || (date && date <= end))
         const formatMatch = !this.sharedToMeFilters.format || item.format === this.sharedToMeFilters.format
         return textMatch && dateMatch && formatMatch
       })
@@ -354,8 +358,8 @@ export default {
       const [start, end] = this.logFilter.dateRange || []
       return this.accessLogs.filter((item) => {
         const textMatch = !keyword || `${item.dataName || ""} ${item.description || ""}`.toLowerCase().includes(keyword)
-        const date = item.createdAt ? new Date(item.createdAt).toISOString().slice(0, 10) : ""
-        const dateMatch = (!start || date >= start) && (!end || date <= end)
+        const date = this.safeDateKey(item.createdAt)
+        const dateMatch = (!start || (date && date >= start)) && (!end || (date && date <= end))
         const formatMatch = !this.logFilter.format || item.format === this.logFilter.format
         const statusMatch = !this.logFilter.status || item.status === this.logFilter.status
         return textMatch && dateMatch && formatMatch && statusMatch
@@ -363,17 +367,23 @@ export default {
     }
   },
   methods: {
+    safeDateKey(value) {
+      if (!value) { return "" }
+      const dt = new Date(value)
+      return Number.isFinite(dt.getTime()) ? dt.toISOString().slice(0, 10) : ""
+    },
     async loadSharedToMeData() {
       try {
-        const page = await shareApi.list({ pageNo: 1, pageSize: 200 })
+        const page = await shareApi.list({ pageNo: 1, pageSize: 500 })
         this.sharedToMeData = page.records.map((record) => ({ ...record, status: record.shareType === "共享" ? "共享" : "私人" }))
       } catch (error) {
         message.error(error instanceof Error ? error.message : "共享给我的数据加载失败")
       }
     },
     async loadMySharedData() {
+      this.loading = true
       try {
-        const page = await shareApi.list({ pageNo: 1, pageSize: 200 })
+        const page = await shareApi.list({ pageNo: 1, pageSize: 500 })
         this.mySharedData = page.records.map((record) => ({ ...record, status: record.status === "未发布" ? "未发布" : record.shareType }))
         this.accessLogs = this.mySharedData.map((record) => ({
           ...record,
@@ -382,10 +392,14 @@ export default {
         }))
       } catch (error) {
         message.error(error instanceof Error ? error.message : "共享数据加载失败")
+      } finally {
+        this.loading = false
       }
     },
     formatShareDate(value) {
-      return value ? new Date(value).toLocaleString() : "-"
+      if (!value) { return "-" }
+      const dt = new Date(value)
+      return Number.isFinite(dt.getTime()) ? dt.toLocaleString() : "-"
     },
     shareStatusText(status) {
       const value = String(status || "")

@@ -1835,237 +1835,27 @@ function ensureBundledDemoDatasets() {
   if (typeof localStorage === "undefined") {
     return
   }
-  let saved: Record<string, any> = {}
-  try {
-    saved = JSON.parse(localStorage.getItem("eoapi_manifests") || "{}")
-  } catch {
-    saved = {}
-  }
-
-  const years = [2023, 2024, 2025]
-  const multiLayerManifest = bundledMultiLayerManifest()
-  rememberDataset(saved, MULTI_LAYER_DATASET_ID, {
-    name: "Multi-layer UI Test Dataset",
-    description: "Frontend test dataset with nested groups, XYZ basemaps and GeoJSON point/line/polygon layers.",
-    visibility: "private",
-    tags: ["test", "multi-layer", "drag-sort"],
-    manifest: multiLayerManifest,
-    revisionManifests: { "multi-layer-v1": multiLayerManifest },
-    revisions: [{ revisionId: "multi-layer-v1", message: "Initial multi-layer test dataset", createdAt: Date.parse("2026-01-01T00:00:00Z") }],
-    createdAt: Date.parse("2026-01-01T00:00:00Z"),
-    updatedAt: Date.parse("2026-01-01T00:00:00Z")
-  })
-  const layerLoadingAcceptanceManifest = bundledLayerLoadingAcceptanceManifest()
-  rememberDataset(saved, LAYER_LOADING_ACCEPTANCE_DATASET_ID, {
-    name: "图层数据接入综合验收数据集",
-    description: "用于验证 COG、JPG 地理影像、XYZ、WMS、MVT、未知类型临时归类，以及普通 JPG 报告附件展示。地图服务均为公开联网资源。",
-    visibility: "private",
-    tags: ["图层验收", "栅格", "MVT", "公开服务"],
-    manifest: layerLoadingAcceptanceManifest,
-    revisionManifests: { "layer-loading-acceptance-v1": layerLoadingAcceptanceManifest },
-    revisions: [{ revisionId: "layer-loading-acceptance-v1", message: "公开服务综合验收数据", createdAt: Date.parse("2026-10-28T00:00:00Z") }],
-    createdAt: Date.parse("2026-10-28T00:00:00Z"),
-    updatedAt: Date.parse("2026-10-28T00:00:00Z")
-  })
-  const earthquakeRevisions: Record<string, Manifest> = {}
-  const earthquakeRevisionRows = years.map((year) => {
-    const revisionId = `eq-${year}`
-    earthquakeRevisions[revisionId] = bundledEarthquakeManifest(year)
-    return {
-      revisionId,
-      message: `${year}年云南及邻区地震（USGS，M≥3.0）`,
-      createdAt: Date.parse(`${year}-12-31T00:00:00Z`)
-    }
-  })
-  rememberDataset(saved, BUNDLED_YUNNAN_EQ_ID, {
-    name: "云南及邻区地震目录（USGS）",
-    description: "美国地质调查局（USGS）地震目录中，2023–2025年云南及邻区（东经97.5–105.5、北纬21–32）震级不小于3.0的事件。坐标、震级、深度和时间均为目录原值。导入后可在图层中查看，也可在时间轴演化中按年份播放。",
-    visibility: "public",
-    tags: ["地震", "云南", "矢量", "USGS"],
-    manifest: bundledEarthquakeManifest(2025),
-    revisionManifests: earthquakeRevisions,
-    revisions: earthquakeRevisionRows,
-    createdAt: Date.parse("2023-01-01T00:00:00Z"),
-    updatedAt: Date.parse("2025-12-31T00:00:00Z")
-  })
-
-  const prefectureManifest = bundledViewManifest(Date.parse("2025-12-31T00:00:00Z"), [
-    {
-      id: "yunnan_prefectures",
-      name: "云南州市界（按地震次数着色）",
-      sourceType: "geojson",
-      sourceRef: bundledDemoAsset("yunnan-prefectures.geojson"),
-      visible: true,
-      opacity: 0.85,
-      order: 0,
-      popup: "州市：{name}<br/>2023–2025年 M≥3.0 次数：{eq_count}<br/>最大震级：{eq_max_mag}<br/>分级：{level}",
-      symbol: {
-        type: "polygon",
-        styleOptions: {
-          opacity: 0.45,
-          outline: true,
-          outlineColor: "#ffffff",
-          outlineWidth: 2,
-          clampToGround: true,
-          label: {
-            text: "{name}",
-            font_size: 14,
-            color: "#ffffff",
-            outline: true,
-            outlineColor: "#000000"
-          }
-        }
-      }
-    },
-    bundledPointLayer(
-      "yunnan_eq_all",
-      "2023–2025年地震事件",
-      "yunnan-earthquakes-2023-2025.geojson",
-      "震级：{mag}<br/>地点：{place}<br/>时间：{time}<br/>深度：{depth_km} km<br/>来源：{source}",
-      "#ff4d4f",
-      ""
-    )
-  ])
-  rememberDataset(saved, "local_yunnan_prefecture_eq", {
-    name: "云南州市地震分布",
-    description: "云南省16个州市界线来自阿里云 DataV 行政区划。颜色和次数由 USGS 2023–2025年 M≥3.0 地震点落入各州市后统计：红色为较多（不少于8次，昭通13次、德宏9次），橙色为有记录，灰蓝为无记录。导入后可与地震点叠在同一组图层里查看。",
-    visibility: "public",
-    tags: ["地震", "云南", "州市", "统计"],
-    manifest: prefectureManifest,
-    revisionManifests: { "prefecture-2025": prefectureManifest },
-    revisions: [{
-      revisionId: "prefecture-2025",
-      message: "云南州市界与2023–2025年地震点",
-      createdAt: Date.parse("2025-12-31T00:00:00Z")
-    }],
-    createdAt: Date.parse("2025-01-01T00:00:00Z"),
-    updatedAt: Date.parse("2025-12-31T00:00:00Z")
-  })
-
-  const baseManifest = bundledViewManifest(Date.parse("2024-01-01T00:00:00Z"), [
-    {
-      id: "yunnan_rivers",
-      name: "主要河流",
-      sourceType: "geojson",
-      sourceRef: bundledDemoAsset("yunnan-rivers.geojson"),
-      visible: true,
-      opacity: 1,
-      order: 0,
-      popup: "河流：{name}<br/>来源：Natural Earth",
-      symbol: {
-        type: "polyline",
-        styleOptions: {
-          color: "#40a9ff",
-          width: 3,
-          clampToGround: true
-        }
-      }
-    },
-    bundledPointLayer(
-      "yunnan_places",
-      "主要城镇",
-      "yunnan-places.geojson",
-      "城镇：{name}<br/>人口：{population}<br/>所属：{admin}<br/>来源：Natural Earth",
-      "#ffc53d",
-      "{name}"
-    )
-  ])
-  rememberDataset(saved, "local_yunnan_basegeo", {
-    name: "云南及邻区城镇与河流",
-    description: "地图范围内的主要河流（金沙江、澜沧江、怒江、红河、南盘江等）和人口5万以上的城镇（昆明、保山、个旧，以及范围内的成都、绵阳等邻区城市）。河流与城镇坐标来自 Natural Earth 公共数据，中文名为对应译名。",
-    visibility: "public",
-    tags: ["云南", "河流", "城镇", "矢量"],
-    manifest: baseManifest,
-    revisionManifests: { "basegeo-ne": baseManifest },
-    revisions: [{
-      revisionId: "basegeo-ne",
-      message: "Natural Earth 城镇与河流",
-      createdAt: Date.parse("2024-01-01T00:00:00Z")
-    }],
-    createdAt: Date.parse("2024-01-01T00:00:00Z"),
-    updatedAt: Date.parse("2024-01-01T00:00:00Z")
-  })
-
-  const imageryRows = [
-    {
-      revisionId: "modis-2024-04-15",
-      message: "MODIS 真彩色 2024-04-15",
-      createdAt: Date.parse("2024-04-15T00:00:00Z"),
-      layerId: "modis_truecolor_20240415",
-      url: MODIS_TRUECOLOR_APRIL
-    },
-    {
-      revisionId: "modis-2024-10-15",
-      message: "MODIS 真彩色 2024-10-15",
-      createdAt: Date.parse("2024-10-15T00:00:00Z"),
-      layerId: "modis_truecolor_20241015",
-      url: MODIS_TRUECOLOR_OCTOBER
-    },
-    {
-      revisionId: "esri-world-imagery",
-      message: "Esri 卫星影像",
-      createdAt: Date.parse("2024-10-16T00:00:00Z"),
-      layerId: "esri_world_imagery",
-      url: ESRI_WORLD_IMAGERY
-    }
+  const DEMO_IDS = [
+    MULTI_LAYER_DATASET_ID,
+    LAYER_LOADING_ACCEPTANCE_DATASET_ID,
+    BUNDLED_YUNNAN_EQ_ID,
+    "local_yunnan_prefecture_eq",
+    "local_yunnan_basegeo",
+    "local_yunnan_imagery",
+    "local_sar_demo"
   ]
-  const imageryRevisions: Record<string, Manifest> = {}
-  for (const row of imageryRows) {
-    imageryRevisions[row.revisionId] = bundledViewManifest(row.createdAt, [
-      bundledImageryLayer(row.layerId, row.message, row.url)
-    ])
-  }
-  rememberDataset(saved, "local_yunnan_imagery", {
-    name: "云南及邻区卫星影像",
-    description: "三幅可直接加载的公开影像：NASA GIBS 的 MODIS Terra 真彩色（2024-04-15、2024-10-15，适合看区域），以及 Esri World Imagery 卫星影像（放大后更清晰）。在分屏对比里左右各选一幅即可对照；导入使用会把 Esri 卫星影像加到图层。影像版权分别属于 NASA 和 Esri，画面上请保留来源说明。",
-    visibility: "public",
-    tags: ["影像", "云南", "MODIS", "卫星"],
-    manifest: imageryRevisions["esri-world-imagery"],
-    revisionManifests: imageryRevisions,
-    revisions: imageryRows.map((row) => ({
-      revisionId: row.revisionId,
-      message: row.message,
-      createdAt: row.createdAt
-    })),
-    createdAt: Date.parse("2024-04-15T00:00:00Z"),
-    updatedAt: Date.parse("2024-10-16T00:00:00Z")
-  })
-
-  const sarDemoCreatedAt = Date.parse("2026-10-26T00:00:00Z")
-  const sarDemoManifest = bundledViewManifest(sarDemoCreatedAt, [
-    {
-      id: "synthetic_sar_backscatter",
-      name: "合成 Sentinel-1 SAR 后向散射影像",
-      sourceType: "image",
-      sourceRef: "/data/sar/synthetic-sar-backscatter.png",
-      visible: true,
-      opacity: 1,
-      order: 0,
-      options: {
-        styleProfile: "sar",
-        bbox: [100.7, 24.2, 103.1, 26.1]
+  try {
+    const saved = JSON.parse(localStorage.getItem("eoapi_manifests") || "{}")
+    let changed = false
+    for (const id of DEMO_IDS) {
+      if (id in saved) {
+        delete saved[id]
+        changed = true
       }
     }
-  ])
-  const sarDemoRecord = {
-    name: "合成 SAR 后向散射影像",
-    description: "用于验证 SAR 默认黑白渲染与图层实时样式调节的离线合成栅格。画面模拟山地、河谷、城镇和雷达散斑，不代表真实 Sentinel-1 观测或业务成果。",
-    visibility: "public",
-    coverUrl: "/data/sar/synthetic-sar-backscatter.png",
-    tags: ["SAR", "Sentinel-1", "栅格", "黑白渲染", "演示数据"],
-    manifest: sarDemoManifest,
-    revisionManifests: { "sar-demo-v1": sarDemoManifest },
-    revisions: [{ revisionId: "sar-demo-v1", message: "合成 SAR 后向散射演示栅格", createdAt: sarDemoCreatedAt }],
-    createdAt: sarDemoCreatedAt,
-    updatedAt: sarDemoCreatedAt
-  }
-  const existingSarOptions = saved.local_sar_demo?.manifest?.layers?.[0]?.options
-  if (!saved.local_sar_demo || (existingSarOptions?.imageBounds && !existingSarOptions?.bbox)) {
-    saved.local_sar_demo = sarDemoRecord
-  }
-
-  try {
-    localStorage.setItem("eoapi_manifests", JSON.stringify(saved))
+    if (changed) {
+      localStorage.setItem("eoapi_manifests", JSON.stringify(saved))
+    }
   } catch {
   }
 }

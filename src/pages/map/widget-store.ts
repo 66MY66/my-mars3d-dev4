@@ -56,11 +56,6 @@ const store: StoreOptions<WidgetState> = {
         group: "right-panel"
       },
       {
-        component: markRaw(defineAsyncComponent(() => import("@mars/widgets/basic/insar-profile/index.vue"))),
-        name: "insar-profile",
-        group: "right-panel"
-      },
-      {
         component: markRaw(defineAsyncComponent(() => import("@mars/widgets/basic/alert-confirm/index.vue"))),
         name: "alert-confirm",
         group: "manage",

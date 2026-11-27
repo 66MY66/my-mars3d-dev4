@@ -26,7 +26,7 @@
       </button>
     </template>
     <div :class="isSpatialAnalysis ? 'spatial-analysis-shell' : 'analysis-tool-shell'">
-      <aside v-if="isSpatialAnalysis" class="spatial-analysis-nav" aria-label="空间分析类型">
+      <aside v-if="isSpatialAnalysis && spatialNavItems.length > 1" class="spatial-analysis-nav" aria-label="空间分析类型">
         <button
           v-for="item in spatialNavItems"
           :key="item.type"
@@ -419,9 +419,7 @@ const SPATIAL_TYPES = ["buffer", "overlay", "neighbor"] as const
 type SpatialType = (typeof SPATIAL_TYPES)[number]
 
 const spatialNavItems: Array<{ type: SpatialType; label: string; shortLabel: string; icon: string }> = [
-  { type: "buffer", label: "缓冲区分析", shortLabel: "缓冲区", icon: "halo" },
-  { type: "overlay", label: "叠加分析", shortLabel: "叠加分析", icon: "agreement" },
-  { type: "neighbor", label: "邻域分析", shortLabel: "邻域分析", icon: "map-distance" }
+  { type: "buffer", label: "缓冲区分析", shortLabel: "缓冲区", icon: "halo" }
 ]
 
 const spatialInitialPosition = ref<{ left: number; top: number } | null>(null)
@@ -591,6 +589,9 @@ function applyWidgetData(data: any) {
     return
   }
   const type = data.type || currentWidget?.meta?.type
+  if (type === "overlay" || type === "neighbor") {
+    return
+  }
   if (type) {
     const spatialType = type as SpatialType
     if (SPATIAL_TYPES.includes(spatialType)) {

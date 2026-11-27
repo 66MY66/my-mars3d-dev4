@@ -26,7 +26,7 @@ export type BufferRequest = {
 
 export type OverlayRequest = {
   target: PolygonAnalysisTarget
-  targetLayer: "mock-admin" | "mock-hazard-area"
+  targetLayer: "china-admin" | "geo-anomaly-area" | "china-province" | "fault-zone" | "mock-admin" | "mock-hazard-area"
   operation: "intersect" | "union" | "difference"
 }
 
@@ -63,8 +63,9 @@ function joinUrl(base: string, path: string) {
 }
 
 function isMockEnabled() {
+  const isTest = typeof process !== "undefined" && (process.env.NODE_ENV === "test" || process.env.VITEST === "true")
   const apiLocal = String((process.env.API_LOCAL as any) ?? "")
-  return apiLocal === "1"
+  return isTest && apiLocal === "1"
 }
 
 function clampNumber(n: any, fallback = 0) {

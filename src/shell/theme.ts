@@ -1,6 +1,7 @@
 export type ThemeMode = "light" | "dark"
 
 const storageKey = "theme"
+let mediaBound = false
 
 export function getStoredTheme(): ThemeMode | null {
   const value = localStorage.getItem(storageKey)
@@ -18,17 +19,34 @@ export function getCurrentTheme(): ThemeMode {
   return "light"
 }
 
-export function setTheme(mode: ThemeMode) {
+function applyTheme(mode: ThemeMode) {
   document.documentElement.dataset.theme = mode
-  localStorage.setItem(storageKey, mode)
   window.dispatchEvent(new CustomEvent("themeChange"))
+}
+
+export function setTheme(mode: ThemeMode) {
+  localStorage.setItem(storageKey, mode)
+  applyTheme(mode)
 }
 
 export function initTheme() {
   const stored = getStoredTheme()
+  const supportsMatchMedia = typeof window.matchMedia === "function"
   if (stored) {
-    setTheme(stored)
-    return
+    applyTheme(stored)
+  } else if (supportsMatchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
+    applyTheme("dark")
+  } else {
+    setTheme("light")
   }
-  setTheme("light")
+
+  if (supportsMatchMedia && !mediaBound) {
+    const mq = window.matchMedia("(prefers-color-scheme: dark)")
+    if (typeof mq?.addEventListener === "function") {
+      mediaBound = true
+      mq.addEventListener("change", (event) => {
+        setTheme(event.matches ? "dark" : "light")
+      })
+    }
+  }
 }

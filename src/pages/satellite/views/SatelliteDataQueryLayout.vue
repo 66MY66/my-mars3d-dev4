@@ -437,7 +437,7 @@ export default {
         }
         if (this.searchForm.resolutionMin != null) { conditions.gsd_min = Number(this.searchForm.resolutionMin) }
         if (this.searchForm.resolutionMax != null) { conditions.gsd_max = Number(this.searchForm.resolutionMax) }
-        conditions.limit = 100
+        conditions.limit = 1000
 
         const flow = await runSearchFlow(conditions)
         this.lastStatistics = flow.statistics

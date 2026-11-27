@@ -1,8 +1,8 @@
 /**
- * Windmill search_flow 检索客户端
- * @description 后端检索服务为 Windmill flow `u/fyt/earth/search_flow`（earth-data 工作区）。
- * 同步调用返回 { results, statistics, export, search_log_id }。
+ * eoAPI 同源 STAC 检索客户端
+ * @description 通过 /api/eoapi/search 实时检索全量编目条目，支持多条件组合与精确统计。
  */
+import { searchItems } from "@mars/widgets/basic/dataset-repository/services/eoapi-datasets"
 
 export interface SearchFlowConditions {
   satellite?: string
@@ -53,38 +53,111 @@ export interface SearchFlowResponse {
   search_log_id?: number
 }
 
-/** Windmill 基址与凭据（部署时可通过环境变量覆盖） */
-export const WINDMILL_BASE = import.meta.env.VITE_WINDMILL_URL || "http://192.168.10.15:6080"
-const WINDMILL_WORKSPACE = import.meta.env.VITE_WINDMILL_WORKSPACE || "earth-data"
-const WINDMILL_FLOW = import.meta.env.VITE_WINDMILL_SEARCH_FLOW || "u/fyt/earth/search_flow"
-const WINDMILL_TOKEN = import.meta.env.VITE_WINDMILL_TOKEN || ""
+/** 保留导出常量以兼容外部引用，统一使用同源 /api/eoapi 代理 */
+export const WINDMILL_BASE = "/api/eoapi"
 
-/** 运行 flow 并轮询至完成（flow 为异步 job，通常 1-3 秒） */
+/** 直连 eoAPI STAC /search 执行检索并构造标准化响应 */
 export async function runSearchFlow(conditions: SearchFlowConditions): Promise<SearchFlowResponse> {
-  const headers: Record<string, string> = { "Content-Type": "application/json" }
-  if (WINDMILL_TOKEN) { headers.Authorization = `Bearer ${WINDMILL_TOKEN}` }
-
-  const runRes = await fetch(
-    `${WINDMILL_BASE}/api/w/${WINDMILL_WORKSPACE}/jobs/run/f/${WINDMILL_FLOW}`,
-    { method: "POST", headers, body: JSON.stringify(conditions) }
-  )
-  if (!runRes.ok) { throw new Error(`检索服务启动失败 (${runRes.status})`) }
-  const jobId = (await runRes.text()).replace(/"/g, "")
-
-  // 轮询 job 结果，最长等 10 秒（后端 SLA within_5s）
   const started = Date.now()
-  while (Date.now() - started < 10_000) {
-    await new Promise((resolve) => setTimeout(resolve, 400))
-    const poll = await fetch(
-      `${WINDMILL_BASE}/api/w/${WINDMILL_WORKSPACE}/jobs_u/get/${jobId}`,
-      { headers: WINDMILL_TOKEN ? { Authorization: `Bearer ${WINDMILL_TOKEN}` } : {} }
-    )
-    if (!poll.ok) { continue }
-    const job = await poll.json()
-    if (job.type === "CompletedFlow" || (job.result && job.success !== false && job.status === undefined)) {
-      return job.result as SearchFlowResponse
-    }
-    if (job.type === "Failure") { throw new Error(job.error?.message || "检索执行失败") }
+  let datetime: string | undefined
+  if (conditions.start || conditions.end) {
+    const s = conditions.start ? `${conditions.start}T00:00:00Z` : ".."
+    const e = conditions.end ? `${conditions.end}T23:59:59Z` : ".."
+    datetime = `${s}/${e}`
   }
-  throw new Error("检索超时")
+  let collections: string[] | undefined
+  if (conditions.collections?.length) {
+    collections = conditions.collections
+  } else if (conditions.dir_id) {
+    collections = [conditions.dir_id]
+  }
+
+  const res = await searchItems({
+    collections,
+    bbox: Array.isArray(conditions.bbox) && conditions.bbox.length === 4
+      ? (conditions.bbox as [number, number, number, number])
+      : undefined,
+    datetime,
+    limit: Math.max(Number(conditions.limit) || 1000, 1000)
+  })
+  if (!res.success || !res.data) {
+    throw new Error(res.message || "检索服务请求失败")
+  }
+
+  const satTokens = String(conditions.satellite || conditions.platform || "")
+    .split(",")
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean)
+  const instTokens = String(conditions.instrument || "")
+    .split(",")
+    .map((x) => x.trim().toLowerCase())
+    .filter(Boolean)
+  const kw = String(conditions.keyword || "").trim().toLowerCase()
+
+  const filtered = (res.data as Array<Record<string, any>>).filter((item) => {
+    const props = item.properties || {}
+    const plat = String(props.platform || item.collection || "").toLowerCase()
+    const insts = Array.isArray(props.instruments) ? props.instruments.map((x: any) => String(x).toLowerCase()) : []
+    const gsd = props.gsd != null ? Number(props.gsd) : null
+    if (satTokens.length && !satTokens.some((tok) => plat.includes(tok))) {
+      return false
+    }
+    if (instTokens.length && !instTokens.some((tok) => insts.some((i: string) => i.includes(tok)))) {
+      return false
+    }
+    if (conditions.gsd_min != null && (gsd == null || gsd < conditions.gsd_min)) {
+      return false
+    }
+    if (conditions.gsd_max != null && (gsd == null || gsd > conditions.gsd_max)) {
+      return false
+    }
+    if (kw) {
+      const text = [item.id, item.collection, props.title, props.description, props.platform, ...insts]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+      if (!text.includes(kw)) { return false }
+    }
+    return true
+  })
+
+  const byCollection: Record<string, number> = {}
+  const results: SearchFlowResult[] = filtered.map((item) => {
+    const cid = String(item.collection || "")
+    byCollection[cid] = (byCollection[cid] || 0) + 1
+    const props = item.properties || {}
+    const assets = (item.assets || {}) as Record<string, any>
+    const preview = assets.thumbnail?.href || assets.rendered_preview?.href || null
+    return {
+      item_id: String(item.id || ""),
+      collection_id: cid,
+      title: String(props.title || item.id || ""),
+      datetime: String(props.datetime || ""),
+      bbox: Array.isArray(item.bbox) ? item.bbox : null,
+      gsd: props.gsd != null ? Number(props.gsd) : null,
+      platform: props.platform ? String(props.platform) : null,
+      instruments: Array.isArray(props.instruments) ? props.instruments.map(String) : null,
+      visibility: props.visibility ? String(props.visibility) : null,
+      catalog_path: cid || null,
+      stac_url: `/api/eoapi/collections/${encodeURIComponent(cid)}/items/${encodeURIComponent(String(item.id || ""))}`,
+      preview: preview ? String(preview) : null,
+      map_layers: null,
+      downloads: assets
+    }
+  })
+
+  const elapsed = Date.now() - started
+  return {
+    results,
+    statistics: {
+      matched: results.length,
+      returned: results.length,
+      response_ms: elapsed,
+      total_ms: elapsed,
+      within_5s: elapsed < 5000,
+      by_collection: byCollection,
+      pages: 1
+    },
+    export: null
+  }
 }

@@ -48,9 +48,20 @@ export type HostContext = {
 export type SatelliteEnvelope = {
   channel: typeof satelliteChannel
   version: typeof satelliteProtocolVersion
-  instanceId: typeof hostInstanceId
-  type: "cui.ready" | "host.init" | "cmd.execute" | "cmd.result"
+  instanceId: string
+  type:
+    | "cui.ready"
+    | "cui.initialized"
+    | "cui.theme.applied"
+    | "host.init"
+    | "host.theme"
+    | "host.theme.change"
+    | "host.context"
+    | "cmd.execute"
+    | "cmd.result"
+    | "task.status"
+    | "ui.toast"
+    | "widget.refresh"
   requestId?: string
   payload?: Record<string, unknown>
 }
-

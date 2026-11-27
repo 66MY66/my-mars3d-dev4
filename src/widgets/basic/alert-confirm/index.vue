@@ -129,7 +129,6 @@ import { useWidget } from "@mars/common/store/widget"
 import * as mapWork from "./map"
 import { $message } from "@mars/components/mars-ui/index"
 import type { AlertInfo } from "@/shell/alerts"
-import { createMockAlerts } from "@/shell/alerts"
 import { useNotificationStore } from "@/shell/notificationStore"
 import TimeEvolutionResult from "./TimeEvolutionResult.vue"
 import SpatialAnalysisResult from "./SpatialAnalysisResult.vue"
@@ -192,7 +191,7 @@ const cuiMachineText = computed(() => {
 })
 
 const initialAlert = currentWidget?.data?.alertInfo as AlertInfo | undefined
-const availableAlerts = ref<AlertInfo[]>(createMockAlerts())
+const availableAlerts = ref<AlertInfo[]>(initialAlert ? [initialAlert] : [])
 const snapshotStore = createAlertSnapshotStore()
 
 function datasetToAlertInfo(dataset: AlertAnalysisDataset): AlertInfo {

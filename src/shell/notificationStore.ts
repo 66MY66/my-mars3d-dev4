@@ -1,6 +1,5 @@
 import { computed, reactive } from "vue"
 import type { AlertInfo } from "@/shell/alerts"
-import { createMockAlerts } from "@/shell/alerts"
 
 export type NotificationType = "alert"
 
@@ -26,8 +25,13 @@ const state = reactive({
   readSet: new Set<string>()
 })
 
+let loadingPromise: Promise<void> | null = null
+
 function loadReadSet(): Set<string> {
   try {
+    if (typeof localStorage === "undefined") {
+      return new Set()
+    }
     const raw = localStorage.getItem(readStorageKey)
     const arr = raw ? JSON.parse(raw) : []
     if (Array.isArray(arr)) {
@@ -38,7 +42,11 @@ function loadReadSet(): Set<string> {
 }
 
 function persistReadSet() {
-  localStorage.setItem(readStorageKey, JSON.stringify(Array.from(state.readSet)))
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem(readStorageKey, JSON.stringify(Array.from(state.readSet)))
+    }
+  } catch {}
 }
 
 function toMs(t: Date | string): number {
@@ -95,37 +103,92 @@ export function getSeverityRank(severity: NotificationSeverity): number {
   return { 严重: 3, 中等: 2, 轻微: 1 }[severity]
 }
 
-function initMockIfNeeded() {
+function initRealAlertsIfNeeded() {
   if (state.initialized) {
     return
   }
-  state.readSet = loadReadSet()
-  const alerts = createMockAlerts()
-  const items = alerts.map((a) => {
-    const createdAt = toMs(a.time)
-    const id = `alert_${createdAt}_${a.location.replace(/\s+/g, "")}`
-    const title = `${formatTimeLabel(createdAt)} 触发预告警通知（${a.degree}）`
-    const read = state.readSet.has(id)
-    return {
-      id,
-      type: "alert",
-      title,
-      createdAt,
-      read,
-      widget: "alert-confirm",
-      payload: { alert: a }
-    } satisfies NotificationItem
-  })
-  sortByTimeDesc(items)
-  state.items = items
   state.initialized = true
+  state.readSet = loadReadSet()
+  if (typeof fetch !== "function" || typeof window === "undefined") {
+    return
+  }
+  if (!loadingPromise) {
+    loadingPromise = fetch("/api/geo-anomaly-alerts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}"
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data || !Array.isArray(data.alerts)) {
+          return
+        }
+        data.alerts.forEach((row: any) => {
+          const days = Array.isArray(row.days) ? row.days : []
+          const points = Array.isArray(row.points) ? row.points : []
+          const latestDay = days[days.length - 1]
+          const validPts = points.filter((p: any) => Number.isFinite(Number(p.lon)) && Number.isFinite(Number(p.lat)))
+          const centerLon = validPts.length
+            ? validPts.reduce((s: number, p: any) => s + Number(p.lon), 0) / validPts.length
+            : 0
+          const centerLat = validPts.length
+            ? validPts.reduce((s: number, p: any) => s + Number(p.lat), 0) / validPts.length
+            : 0
+          const confirmedCnt = points.filter((p: any) => Boolean(p.confirmed)).length
+          const idx = row.anomaly_index != null ? Number(row.anomaly_index) : 0
+          let degree = "轻微"
+          if (idx >= 2.5) {
+            degree = "严重"
+          } else if (idx >= 1.5) {
+            degree = "中等"
+          }
+          const latestDate = String(latestDay?.date || points[0]?.date || new Date().toISOString().slice(0, 10))
+          upsertAlert({
+            taskName: String(row.task_name || ""),
+            anomalyDate: latestDate,
+            anomalyIndex: row.anomaly_index ?? null,
+            baselineSampleCount: row.baseline_n ?? null,
+            trend: row.trend === "rising" || row.trend === "falling" || row.trend === "stable" ? row.trend : null,
+            observedTemperature: latestDay?.obs_c ?? null,
+            forecastTemperature: latestDay?.fc_c ?? null,
+            temperatureDifference: latestDay?.diff_c ?? null,
+            pointCount: points.length,
+            confirmedPointCount: confirmedCnt,
+            alertNo: `${row.task_name || ""}|${latestDate}`,
+            name: `${row.task_name || "热异常"} 监测告警`,
+            type: "热异常",
+            time: latestDate,
+            source: "地表热异常监测数据库",
+            region: "",
+            location: `${centerLon.toFixed(5)}, ${centerLat.toFixed(5)}`,
+            status: confirmedCnt === points.length && points.length > 0 ? "已确认" : "待确认",
+            degree,
+            duration: `${days.length}天`,
+            scope: "",
+            analysisResult: "",
+            monitoring: {
+              maxSurfaceTemperature: latestDay?.obs_c ?? 0,
+              averageTemperature: latestDay?.obs_c ?? 0,
+              backgroundTemperature: latestDay?.fc_c ?? 0,
+              maxTemperatureDifference: latestDay?.diff_c ?? idx,
+              abnormalArea: 0,
+              abnormalPixelCount: points.length,
+              cloudCoverage: 0,
+              confidence: 0
+            }
+          })
+        })
+      })
+      .catch(() => {})
+  }
 }
 
 function upsertAlert(alert: AlertInfo) {
-  initMockIfNeeded()
+  initRealAlertsIfNeeded()
   const createdAt = toMs(alert.time)
   const id = `alert_${createdAt}_${alert.location.replace(/\s+/g, "")}`
-  const title = `${formatTimeLabel(createdAt)} 触发预告警通知（${alert.degree}）`
+  const deg = alert.degree || "轻微"
+  const title = `${formatTimeLabel(createdAt)} ${alert.taskName || ""} 预告警通知（${deg}）`.trim()
   const existing = state.items.find((x) => x.id === id)
   if (existing) {
     existing.title = title
@@ -147,7 +210,7 @@ function upsertAlert(alert: AlertInfo) {
 }
 
 function markRead(id: string) {
-  initMockIfNeeded()
+  initRealAlertsIfNeeded()
   state.readSet.add(id)
   persistReadSet()
   const it = state.items.find((x) => x.id === id)
@@ -157,7 +220,7 @@ function markRead(id: string) {
 }
 
 function markAllRead() {
-  initMockIfNeeded()
+  initRealAlertsIfNeeded()
   state.items.forEach((n) => {
     n.read = true
     state.readSet.add(n.id)
@@ -166,7 +229,7 @@ function markAllRead() {
 }
 
 const listForView = computed(() => {
-  initMockIfNeeded()
+  initRealAlertsIfNeeded()
   return state.items.map((n) => ({
     ...n,
     timeLabel: formatTimeLabel(n.createdAt)
@@ -174,17 +237,17 @@ const listForView = computed(() => {
 })
 
 const unreadCount = computed(() => {
-  initMockIfNeeded()
+  initRealAlertsIfNeeded()
   return state.items.filter((n) => !n.read).length
 })
 
 function getById(id: string): NotificationItem | null {
-  initMockIfNeeded()
+  initRealAlertsIfNeeded()
   return state.items.find((x) => x.id === id) || null
 }
 
 export function useNotificationStore() {
-  initMockIfNeeded()
+  initRealAlertsIfNeeded()
   return {
     listForView,
     unreadCount,

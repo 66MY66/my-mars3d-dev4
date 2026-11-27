@@ -166,10 +166,11 @@ export const toolParamDefs: Record<string, any[]> = {
       label: "目标图层",
       key: "targetLayer",
       type: "select",
-      value: "mock-admin",
+      value: "china-admin",
       options: [
-        { label: "模拟-行政区", value: "mock-admin" },
-        { label: "模拟-隐患面", value: "mock-hazard-area" }
+        { label: "中国行政区划 (真实矢量)", value: "china-admin" },
+        { label: "地震热异常区域 (真实监测)", value: "geo-anomaly-area" },
+        { label: "活动断层带 (真实矢量)", value: "fault-zone" }
       ]
     },
     {

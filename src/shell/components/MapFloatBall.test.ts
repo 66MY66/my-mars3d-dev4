@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { nextTick } from "vue"
 import MapFloatBall from "./MapFloatBall.vue"
 
-describe("MapFloatBall task center placeholder UI", () => {
+describe("MapFloatBall live task center", () => {
   beforeEach(() => {
     localStorage.clear()
     document.body.innerHTML = ""
@@ -11,20 +11,33 @@ describe("MapFloatBall task center placeholder UI", () => {
       configurable: true,
       value: vi.fn()
     })
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => ({ tasks: [] }) }))
   })
 
   afterEach(() => {
     document.body.innerHTML = ""
     delete (HTMLElement.prototype as any).setPointerCapture
+    vi.unstubAllGlobals()
     vi.restoreAllMocks()
   })
 
-  it("shows the running count on the bubble and opens a status-first task drawer", async () => {
+  it("updates running and completed tasks from cui-task-status events and renders download links", async () => {
     const wrapper = mount(MapFloatBall, { attachTo: document.body })
     const ball = document.body.querySelector(".map-float-ball") as HTMLButtonElement
 
+    window.dispatchEvent(new CustomEvent("cui-task-status", {
+      detail: {
+        task_id: "TSK-RPT-100",
+        status: "running",
+        title: "九寨沟热异常研判报告",
+        current_step: "正在排版报告",
+        progress: 65
+      }
+    }))
+    await nextTick()
+
     expect(ball.classList.contains("has-running-tasks")).toBe(true)
-    expect(ball.querySelector(".map-float-ball__badge")?.textContent).toBe("2")
+    expect(ball.querySelector(".map-float-ball__badge")?.textContent).toBe("1")
 
     const state = (wrapper.vm as any).$.setupState
     state.onPointerDown({
@@ -40,23 +53,25 @@ describe("MapFloatBall task center placeholder UI", () => {
 
     const drawer = document.body.querySelector(".task-center-drawer") as HTMLElement
     expect(drawer).toBeTruthy()
-    expect(drawer.textContent).toContain("2 个任务进行中")
-    expect(drawer.textContent).toContain("刚刚更新")
-    expect(drawer.querySelectorAll(".task-running-card")).toHaveLength(2)
-    expect(drawer.textContent).toContain("震后灾损专题图")
-    expect(drawer.textContent).toContain("72%")
-    expect(drawer.textContent).toContain("全国影像瓦片服务")
-    expect(drawer.textContent).toContain("41%")
-    expect(drawer.textContent).toContain("1 个任务排队中")
-    expect(drawer.querySelectorAll(".recent-task-row")).toHaveLength(3)
+    expect(drawer.textContent).toContain("九寨沟热异常研判报告")
+    expect(drawer.textContent).toContain("65%")
 
-    const prohibitedActions = Array.from(drawer.querySelectorAll("button")).filter((button) =>
-      /取消|重试|下载|打开成果|删除/.test(button.textContent || "")
-    )
-    expect(prohibitedActions).toHaveLength(0)
+    window.dispatchEvent(new CustomEvent("cui-task-status", {
+      detail: {
+        task_id: "TSK-RPT-100",
+        status: "succeeded",
+        title: "九寨沟热异常研判报告",
+        download_url: "http://192.168.10.15:9002/rs-products/cui-linkage/report.docx",
+        preview_url: "http://192.168.10.15:9002/rs-products/cui-linkage/report.html"
+      }
+    }))
+    await nextTick()
+
+    const links = Array.from(drawer.querySelectorAll("a"))
+    expect(links.some((a) => a.getAttribute("href")?.includes("report.docx"))).toBe(true)
   })
 
-  it("closes the placeholder drawer from its close control", async () => {
+  it("closes the drawer from its close control", async () => {
     const wrapper = mount(MapFloatBall, { attachTo: document.body })
     ;(wrapper.vm as any).$.setupState.drawerOpen = true
     await nextTick()

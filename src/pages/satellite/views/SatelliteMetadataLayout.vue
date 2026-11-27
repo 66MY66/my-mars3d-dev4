@@ -45,6 +45,9 @@
           >
             <a-select-option value="光学">光学</a-select-option>
             <a-select-option value="SAR">SAR</a-select-option>
+            <a-select-option value="热红外">热红外</a-select-option>
+            <a-select-option value="原始L0">原始L0</a-select-option>
+            <a-select-option value="专题数据">专题数据</a-select-option>
           </a-select>
         </a-form-item>
         <a-form-item label="获取时间">
@@ -71,7 +74,7 @@
         :data-source="metadataList"
         :pagination="paginationConfig"
         :loading="loading"
-        row-key="metadataId"
+        row-key="id"
         @change="handleTableChange"
       >
         <template #bodyCell="{ column, record }">
@@ -172,7 +175,7 @@ export default {
         dateRange: []
       },
       satelliteSearch: "",
-      satelliteModels: ["GF-1", "GF-6", "Sentinel-1", "Sentinel-2", "Landsat-8", "AQUA", "NOAA-20", "SUOMI-NPP", "FY-3D", "FY-3Y", "FY-3F"],
+      satelliteModels: ["AQUA", "TERRA", "SUOMI-NPP", "NOAA-20", "NOAA-21", "FY-3H", "FY-3D", "GF-2", "Sentinel-1"],
 
       // 元数据列表
       metadataList: [],
@@ -236,7 +239,7 @@ export default {
         })
         const selected = this.filters.satellites
         const records = selected.length
-          ? page.records.filter((record) => selected.includes(String(record.satellite)))
+          ? page.records.filter((record) => selected.some((s) => String(record.satellite || "").toLowerCase().includes(s.toLowerCase())))
           : page.records
         this.paginationConfig.total = records.length
         const start = (this.paginationConfig.current - 1) * this.paginationConfig.pageSize

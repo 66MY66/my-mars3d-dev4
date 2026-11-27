@@ -1,7 +1,7 @@
 <template>
   <div v-show="visible !== false" class="thermal-evolution-panel">
     <div class="panel-header">
-      <span class="title">热异常时空演化演示</span>
+      <span class="title">热异常时空演化分析</span>
     </div>
     <div class="panel-content">
       <div class="control-item">
@@ -25,11 +25,11 @@
           <mars-slider
             v-model:value="progress"
             :min="0"
-            :max="totalDays"
-            :step="0.1"
+            :max="maxFrameIndex"
+            :step="1"
             class="timeline-slider"
           />
-          <span class="progress-text">{{ currentDate }}</span>
+          <span class="progress-text">{{ currentDate || "无观测数据" }}</span>
         </div>
       </div>
     </div>
@@ -46,35 +46,41 @@ defineProps<{
   visible?: boolean
 }>()
 
-// 启用mapWork生命周期管理
 useLifecycle(mapWork)
 
-// 默认一个月前
-const startTime = ref(dayjs().subtract(1, "month"))
-const endTime = ref(dayjs())
+const startTime = ref(dayjs("2021-05-01"))
+const endTime = ref(dayjs("2026-12-31"))
 const progress = ref(0)
+const dates = ref<string[]>([])
 const isPlaying = ref(false)
 let timer: any = null
 
-const totalDays = computed(() => {
-  return dayjs(endTime.value).diff(dayjs(startTime.value), "day")
-})
+const maxFrameIndex = computed(() => Math.max(0, dates.value.length - 1))
 
-watch([startTime, endTime], () => {
-  if (totalDays.value > 0) {
-    mapWork.generateMockData(totalDays.value)
-    progress.value = 0
-    mapWork.updateThermalLayer(0)
-  }
-}, { immediate: true })
+watch(
+  [startTime, endTime],
+  async () => {
+    try {
+      await mapWork.loadRealThermalData(
+        dayjs(startTime.value).format("YYYY-MM-DD"),
+        dayjs(endTime.value).format("YYYY-MM-DD")
+      )
+      dates.value = mapWork.getThermalDates()
+      progress.value = 0
+      mapWork.updateThermalLayer(0)
+    } catch (err) {
+      console.error("Failed to load real thermal evolution data", err)
+    }
+  },
+  { immediate: true }
+)
 
-// 计算当前显示的日期
 const currentDate = computed(() => {
-  if (!startTime.value) {
+  if (!dates.value.length) {
     return ""
   }
-  // 根据进度计算当前日期
-  return dayjs(startTime.value).add(Math.floor(progress.value), "day").format("YYYY-MM-DD")
+  const idx = Math.max(0, Math.min(Math.floor(progress.value), dates.value.length - 1))
+  return dates.value[idx] || ""
 })
 
 watch(progress, (val) => {
@@ -92,24 +98,18 @@ const togglePlay = () => {
 
 const startAnimation = () => {
   stopAnimation()
-  
   const step = () => {
     if (!isPlaying.value) {
       return
     }
-    
-    // 如果已经在最后一天，重置为0
-    if (progress.value >= totalDays.value) {
+    if (progress.value >= maxFrameIndex.value) {
       progress.value = 0
     } else {
-      progress.value = Number((progress.value + 0.1).toFixed(1))
+      progress.value = progress.value + 1
     }
-    
-    timer = setTimeout(step, 50) // 50ms 更新一次
+    timer = setTimeout(step, 500)
   }
-  
-  // 延迟启动第一次更新，避免立即跳转
-  timer = setTimeout(step, 50)
+  timer = setTimeout(step, 500)
 }
 
 const stopAnimation = () => {
@@ -158,7 +158,7 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 10px;
-  
+
   .label {
     min-width: 70px;
   }
@@ -169,20 +169,20 @@ onUnmounted(() => {
   align-items: center;
   flex: 1;
   gap: 10px;
-  
+
   .play-btn {
     cursor: pointer;
     &:hover {
       opacity: 0.8;
     }
   }
-  
+
   .timeline-slider {
     flex: 1;
   }
-  
+
   .progress-text {
-    min-width: 90px;
+    min-width: 100px;
     text-align: right;
     font-family: monospace;
   }

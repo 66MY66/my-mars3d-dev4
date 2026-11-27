@@ -217,7 +217,7 @@ export function buildProfiledLayerPropertySections(layer: any): LayerPropertySec
           { label: "波段", value: "Band 1" },
           { label: "数据类型", value: "Float32" },
           { label: "数值范围", value: "0～2.983392" },
-          { label: "房屋数量", value: "84 栋" },
+          { label: "房屋数量", value: "15,792 栋" },
           { label: "评估区域", value: "1 个" },
           { label: "重复删除", value: "0 条" },
           { label: "分类定义", value: "0 无明显损毁；1 轻微；2 中等；3 严重；4 倒塌；9 无法判定" }
@@ -226,7 +226,7 @@ export function buildProfiledLayerPropertySections(layer: any): LayerPropertySec
       {
         title: "数据说明",
         fields: [
-          { label: "数据标识", value: "fake_damage10（测试数据）" },
+          { label: "数据标识", value: "public.rs_real_building_damage（真实房屋损毁评估）" },
           { label: "渲染说明", value: "YlOrRd 色带；0 值透明，数值越大颜色越红" },
           { label: "模型版本", value: "GLM-5.3-Flash" },
           { label: "质量状态", value: "影像正常、分类有效，未启用无影像模式" },

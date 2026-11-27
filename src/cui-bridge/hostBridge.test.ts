@@ -14,25 +14,34 @@ describe("satellite host bridge", () => {
     window.dispatchEvent(event)
   }
 
-  it("answers cui.ready through the ready callback and executes map.locate", async () => {
+  it("echoes CUI dynamic instanceId across ready and cmd.result and forwards task.status & ui.toast", async () => {
     const ready = vi.fn()
+    const onTaskStatus = vi.fn()
+    const onToast = vi.fn()
+    const onExecuted = vi.fn()
     commandBus.register("map.locate", () => ({ success: true, data: { locateStatus: "succeeded", target: "ALT-SC-001" } }))
     const target = { postMessage: vi.fn() } as unknown as Window
-    const dispose = initSatelliteBridge(() => target, "http://192.168.10.15:6060", ready)
+    const cuiId = "uuid-cui-1234"
+    const dispose = initSatelliteBridge(() => target, "http://192.168.10.15:6060", {
+      onReady: ready,
+      onCommandExecuted: onExecuted,
+      onTaskStatus,
+      onToast
+    })
 
     dispatch(target, "http://192.168.10.15:6060", {
       channel: satelliteChannel,
       version: satelliteProtocolVersion,
-      instanceId: "cui-main",
+      instanceId: cuiId,
       type: "cui.ready",
       payload: {}
     })
-    expect(ready).toHaveBeenCalledOnce()
+    expect(ready).toHaveBeenCalledWith(cuiId)
 
     dispatch(target, "http://192.168.10.15:6060", {
       channel: satelliteChannel,
       version: satelliteProtocolVersion,
-      instanceId: "cui-main",
+      instanceId: cuiId,
       type: "cmd.execute",
       requestId: "REQ-1",
       payload: { command: "map.locate", arguments: { target: "ALT-SC-001" } }
@@ -41,10 +50,29 @@ describe("satellite host bridge", () => {
 
     expect(target.postMessage).toHaveBeenCalledWith(expect.objectContaining({
       channel: satelliteChannel,
+      instanceId: cuiId,
       type: "cmd.result",
       requestId: "REQ-1",
       payload: { command: "map.locate", success: true, data: { locateStatus: "succeeded", target: "ALT-SC-001" } }
     }), "http://192.168.10.15:6060")
+    expect(onExecuted).toHaveBeenCalledOnce()
+
+    dispatch(target, "http://192.168.10.15:6060", {
+      channel: satelliteChannel,
+      version: satelliteProtocolVersion,
+      instanceId: cuiId,
+      type: "task.status",
+      payload: { task_id: "TSK-RPT-1", status: "succeeded", download_url: "http://192.168.10.15:9002/x.docx" }
+    })
+    dispatch(target, "http://192.168.10.15:6060", {
+      channel: satelliteChannel,
+      version: satelliteProtocolVersion,
+      instanceId: cuiId,
+      type: "ui.toast",
+      payload: { level: "success", title: "完成", message: "报告已生成" }
+    })
+    expect(onTaskStatus).toHaveBeenCalledOnce()
+    expect(onToast).toHaveBeenCalledOnce()
     dispose()
   })
 

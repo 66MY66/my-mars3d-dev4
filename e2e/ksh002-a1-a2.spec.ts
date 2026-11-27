@@ -964,7 +964,7 @@ test.describe("Evidence 0516", () => {
     await canvas.dblclick({ position: { x: 600, y: 420 } })
 
     await canvas.click({ position: { x: 600, y: 360 }, button: "right" })
-    await expect(page.locator(".mars3d-contextmenu-ul").locator("li", { hasText: "空间分析" })).toBeVisible({ timeout: 20000 })
+    await expect(page.locator(".mars3d-contextmenu-ul").locator("li", { hasText: "空间分析" })).toHaveCount(0)
     await expect(page.locator(".mars3d-contextmenu-ul").locator("li", { hasText: "查看统计" })).toBeVisible({ timeout: 20000 })
 
     const shot2 = testInfo.outputPath("4-1_context_menu_entries.png")

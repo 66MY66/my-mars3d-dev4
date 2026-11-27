@@ -481,13 +481,13 @@ export default {
         output: { keyword: "", subsystem: undefined, dateRange: null, format: undefined },
         upload: { keyword: "", interactionObject: undefined, dateRange: null, format: undefined }
       },
-      dataListSources: ["卫星地面站", "数据接收质控管理软件", "运行支撑与管理调度软件"],
-      outputSubsystems: ["地面站子系统", "风险监测子系统", "损失评估子系统", "中短期宏观异常监测子系统"],
-      interactionObjects: ["卫星地面站", "数据接收质控管理软件", "运行支撑与管理调度软件"],
+      dataListSources: [],
+      outputSubsystems: [],
+      interactionObjects: [],
       dataListFormats: {
-        access: ["GeoTIFF", "JSON", "NetCDF"],
-        output: ["GeoTIFF", "JSON", "PDF"],
-        upload: ["GeoTIFF", "JSON", "PDF"]
+        access: [],
+        output: [],
+        upload: []
       },
       dataListPagination: {
         access: { current: 1, pageSize: 5, total: 0, showSizeChanger: true, pageSizeOptions: ["5", "10", "20"], showTotal: (total) => `共 ${total} 条数据` },
@@ -495,39 +495,9 @@ export default {
         upload: { current: 1, pageSize: 5, total: 0, showSizeChanger: true, pageSizeOptions: ["5", "10", "20"], showTotal: (total) => `共 ${total} 条数据` }
       },
       dataListRecords: {
-        access: {
-          month: [
-            { id: "access-m-1", name: "地面站卫星原始数据", source: "卫星地面站", time: "2026-11-23 09:30", format: "GeoTIFF", status: "已接入" },
-            { id: "access-m-2", name: "气象观测数据", source: "数据接收质控管理软件", time: "2026-11-22 16:10", format: "JSON", status: "已接入" },
-            { id: "access-m-3", name: "遥感产品数据", source: "运行支撑与管理调度软件", time: "2026-11-20 11:45", format: "NetCDF", status: "已接入" }
-          ],
-          week: [
-            { id: "access-w-1", name: "地面站卫星原始数据", source: "卫星地面站", time: "2026-11-23 09:30", format: "GeoTIFF", status: "已接入" },
-            { id: "access-w-2", name: "应急观测数据", source: "数据接收质控管理软件", time: "2026-11-21 14:20", format: "JSON", status: "处理中" }
-          ]
-        },
-        output: {
-          month: [
-            { id: "output-m-1", name: "卫星遥感标准数据", module: "地面站子系统", time: "2026-11-23 10:05", content: "标准化遥感影像", format: "GeoTIFF", sent: "是" },
-            { id: "output-m-2", name: "风险监测成果", module: "风险监测子系统", time: "2026-11-22 18:40", content: "风险指数栅格", format: "GeoTIFF", sent: "是" },
-            { id: "output-m-3", name: "评估报告", module: "损失评估子系统", time: "2026-11-19 15:12", content: "评估报告文档", format: "PDF", sent: "否" }
-          ],
-          week: [
-            { id: "output-w-1", name: "卫星遥感标准数据", module: "地面站子系统", time: "2026-11-23 10:05", content: "标准化遥感影像", format: "GeoTIFF", sent: "是" },
-            { id: "output-w-2", name: "异常监测成果", module: "中短期宏观异常监测子系统", time: "2026-11-21 09:18", content: "异常点位数据", format: "JSON", sent: "是" }
-          ]
-        },
-        upload: {
-          month: [
-            { id: "upload-m-1", name: "卫星遥感标准数据", source: "标准产品模块", interactionObject: "卫星地面站", time: "2026-11-23 10:20", size: "128 MB", format: "GeoTIFF", status: "上传成功" },
-            { id: "upload-m-2", name: "评估报告", source: "综合评估模块", interactionObject: "数据接收质控管理软件", time: "2026-11-22 17:05", size: "8 MB", format: "PDF", status: "上传成功" },
-            { id: "upload-m-3", name: "风险监测成果", source: "风险监测模块", interactionObject: "运行支撑与管理调度软件", time: "2026-11-20 13:50", size: "64 MB", format: "JSON", status: "上传失败" }
-          ],
-          week: [
-            { id: "upload-w-1", name: "卫星遥感标准数据", source: "标准产品模块", interactionObject: "卫星地面站", time: "2026-11-23 10:20", size: "128 MB", format: "GeoTIFF", status: "上传成功" },
-            { id: "upload-w-2", name: "异常监测成果", source: "异常监测模块", interactionObject: "运行支撑与管理调度软件", time: "2026-11-21 09:30", size: "32 MB", format: "JSON", status: "上传成功" }
-          ]
-        }
+        access: { month: [], week: [] },
+        output: { month: [], week: [] },
+        upload: { month: [], week: [] }
       },
       uploadPeriod: "month",
       uploadPieInstance: null,
@@ -548,22 +518,21 @@ export default {
         items: []
       },
       accessCategories: [
-        { name: "地面站卫星原始数据", color: "#5B8FF9", count: 128, percent: 47, daily: [] },
-        { name: "气象数据", color: "#61DDAA", count: 76, percent: 28, daily: [] },
-        { name: "遥感产品数据", color: "#65789B", count: 42, percent: 15, daily: [] },
-        { name: "其他数据", color: "#F6BD16", count: 27, percent: 10, daily: [] }
+        { name: "地面站卫星原始数据", color: "#5B8FF9", count: 0, percent: 0, daily: [], dailyMap: {} },
+        { name: "卫星遥感标准产品", color: "#61DDAA", count: 0, percent: 0, daily: [], dailyMap: {} },
+        { name: "热红外监测数据", color: "#65789B", count: 0, percent: 0, daily: [], dailyMap: {} },
+        { name: "地震灾情与专题数据", color: "#F6BD16", count: 0, percent: 0, daily: [], dailyMap: {} }
       ],
       outputCategories: [
-        { name: "卫星遥感标准数据", color: "#5B8FF9", count: 86, percent: 43, daily: [] },
-        { name: "评估报告", color: "#61DDAA", count: 42, percent: 21, daily: [] },
-        { name: "风险监测成果", color: "#65789B", count: 38, percent: 19, daily: [] },
-        { name: "异常监测成果", color: "#F6BD16", count: 34, percent: 17, daily: [] }
+        { name: "卫星遥感标准数据", color: "#5B8FF9", count: 0, percent: 0, daily: [], dailyMap: {} },
+        { name: "热红外异常监测成果", color: "#61DDAA", count: 0, percent: 0, daily: [], dailyMap: {} },
+        { name: "灾情与评估报告", color: "#65789B", count: 0, percent: 0, daily: [], dailyMap: {} },
+        { name: "空间专题与自定义成果", color: "#F6BD16", count: 0, percent: 0, daily: [], dailyMap: {} }
       ],
       uploadCategories: [
-        { name: "卫星遥感标准数据", color: "#5B8FF9", count: 74, percent: 41, daily: [] },
-        { name: "评估报告", color: "#61DDAA", count: 46, percent: 26, daily: [] },
-        { name: "风险监测成果", color: "#65789B", count: 35, percent: 19, daily: [] },
-        { name: "异常监测成果", color: "#F6BD16", count: 25, percent: 14, daily: [] }
+        { name: "地面站原始数据(L0)", color: "#5B8FF9", count: 0, percent: 0, daily: [], dailyMap: {} },
+        { name: "地面站预处理成果(L1)", color: "#61DDAA", count: 0, percent: 0, daily: [], dailyMap: {} },
+        { name: "自定义上传数据集", color: "#65789B", count: 0, percent: 0, daily: [], dailyMap: {} }
       ],
 
       // 统计数据
@@ -641,9 +610,7 @@ export default {
   },
   mounted() {
     this.loadPools()
-    this.$nextTick(() => this.renderAccessCharts())
-    this.$nextTick(() => this.renderOutputCharts())
-    this.$nextTick(() => this.renderUploadCharts())
+    this.loadOverviewStats()
     window.addEventListener("resize", this.resizeAccessCharts)
   },
   beforeUnmount() {
@@ -694,9 +661,12 @@ export default {
           if (filters.subsystem && record.module !== filters.subsystem) { return false }
           if (filters.interactionObject && record.interactionObject !== filters.interactionObject) { return false }
           if (filters.format && record.format !== filters.format) { return false }
-          const recordDate = dayjs(record.time)
-          if (start && recordDate.isBefore(dayjs(start), "day")) { return false }
-          if (end && recordDate.isAfter(dayjs(end), "day")) { return false }
+          if (start || end) {
+            const recordDate = dayjs(record.time)
+            if (!recordDate.isValid()) { return false }
+            if (start && recordDate.isBefore(dayjs(start), "day")) { return false }
+            if (end && recordDate.isAfter(dayjs(end), "day")) { return false }
+          }
           return true
         })
       }
@@ -897,9 +867,9 @@ export default {
         return
       }
       const dates = getAccessDateRange(this.accessPeriod)
-      const length = dates.length
-      this.accessCategories.forEach((item, categoryIndex) => {
-        item.daily = Array.from({ length }, (_, index) => Math.max(0, Math.round(6 + categoryIndex * 3 + Math.sin(index * 0.8 + categoryIndex) * 4 + (index % 5))))
+      const tooltipDatesForDaily = getAccessDateRange(this.accessPeriod, new Date(), "full")
+      this.accessCategories.forEach((item) => {
+        item.daily = tooltipDatesForDaily.map((d) => Number((item.dailyMap || {})[d] || 0))
       })
       const visibleCategories = this.accessCategories.filter((item) => item.count > 0)
       const trend = buildAccessTrend(visibleCategories, dates)
@@ -961,8 +931,8 @@ export default {
       const dates = getAccessDateRange(this.outputPeriod)
       const tooltipDates = getAccessDateRange(this.outputPeriod, new Date(), "full")
       const visibleCategories = this.outputCategories.filter((item) => item.count > 0)
-      visibleCategories.forEach((item, categoryIndex) => {
-        item.daily = Array.from({ length: dates.length }, (_, index) => Math.max(0, Math.round(4 + categoryIndex * 2 + Math.cos(index * 0.7 + categoryIndex) * 3 + (index % 4))))
+      visibleCategories.forEach((item) => {
+        item.daily = tooltipDates.map((d) => Number((item.dailyMap || {})[d] || 0))
       })
       const trend = buildAccessTrend(visibleCategories, dates)
       this.outputPieInstance?.dispose()
@@ -1013,8 +983,8 @@ export default {
       const dates = getAccessDateRange(this.uploadPeriod)
       const tooltipDates = getAccessDateRange(this.uploadPeriod, new Date(), "full")
       const visibleCategories = this.uploadCategories.filter((item) => item.count > 0)
-      visibleCategories.forEach((item, categoryIndex) => {
-        item.daily = Array.from({ length: dates.length }, (_, index) => Math.max(0, Math.round(3 + categoryIndex * 2 + Math.sin(index * 0.65 + categoryIndex) * 3 + (index % 3))))
+      visibleCategories.forEach((item) => {
+        item.daily = tooltipDates.map((d) => Number((item.dailyMap || {})[d] || 0))
       })
       const trend = buildAccessTrend(visibleCategories, dates)
       this.uploadPieInstance?.dispose()
@@ -1063,7 +1033,7 @@ export default {
       try {
         const page = await poolApi.list({
           pageNo: this.paginationConfig.current,
-          pageSize: this.paginationConfig.pageSize
+          pageSize: Math.max(this.paginationConfig.pageSize, 100)
         })
         this.poolList = page.records.map(fromPool)
         this.paginationConfig.total = page.total
@@ -1077,8 +1047,34 @@ export default {
         this.loading = false
       }
     },
+    async loadOverviewStats() {
+      try {
+        const stats = await poolApi.getOverviewStats()
+        this.accessCategories = stats.accessCategories
+        this.outputCategories = stats.outputCategories
+        this.uploadCategories = stats.uploadCategories
+        this.dataListRecords = stats.records
+        const uniq = (rows, key) => Array.from(new Set((rows || []).map((r) => r[key]).filter(Boolean)))
+        this.dataListSources = uniq(stats.records.access.month, "source")
+        this.outputSubsystems = uniq(stats.records.output.month, "module")
+        this.interactionObjects = uniq(stats.records.upload.month, "interactionObject")
+        this.dataListFormats = {
+          access: uniq(stats.records.access.month, "format"),
+          output: uniq(stats.records.output.month, "format"),
+          upload: uniq(stats.records.upload.month, "format")
+        }
+        this.$nextTick(() => {
+          this.renderAccessCharts()
+          this.renderOutputCharts()
+          this.renderUploadCharts()
+        })
+      } catch (error) {
+        console.error("Failed to load overview stats", error)
+      }
+    },
     refreshData() {
       this.loadPools(true)
+      this.loadOverviewStats()
     },
 
     handleSearch() {
@@ -1128,7 +1124,7 @@ export default {
     async searchCatalogItems() {
       this.catalogSearch.loading = true
       try {
-        const res = await searchItems({ limit: 50 })
+        const res = await searchItems({ limit: 1000 })
         const items = res.success && res.data ? res.data : []
         const kw = String(this.catalogSearch.keyword || "").trim().toLowerCase()
         this.catalogSearch.results = items
