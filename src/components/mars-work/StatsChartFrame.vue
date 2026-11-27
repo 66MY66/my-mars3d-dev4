@@ -25,12 +25,13 @@ defineProps<{
 .stats-chart-frame {
   position: relative;
   width: 100%;
-  height: 220px;
+  height: 100%;
+  min-height: 0;
 }
 
 .chart {
   width: 100%;
-  height: 220px;
+  height: 100%;
 }
 
 .chart.is-status-visible {

@@ -1,6 +1,6 @@
 import type { PopulationProfilePoint } from "./population-latitude-profile"
 
-export type StatsChartKey = "population" | "economy" | "housing" | "radiation" | "vegetation"
+export type StatsChartKey = "population" | "economy" | "housing" | "radiation"
 
 type StatsRow = Record<string, any>
 
@@ -8,8 +8,7 @@ const divisionLabels: Record<StatsChartKey, string> = {
   population: "人口栅格 · 行政区汇总",
   housing: "建筑结构 · 抗震等级",
   economy: "区域经济贡献",
-  radiation: "月份 · 异常等级",
-  vegetation: "月份 · 覆盖等级"
+  radiation: "月份 · 异常等级"
 }
 
 export function getStatsDivisionLabel(key: StatsChartKey) {
@@ -174,32 +173,6 @@ function buildRadiationOption(rows: StatsRow[]) {
   }
 }
 
-function buildVegetationOption(rows: StatsRow[]) {
-  const grades = ["无植被", "低覆盖", "中覆盖", "中高覆盖", "高覆盖"]
-  const colors = ["#8c8c8c", "#d3adf7", "#95de64", "#52c41a", "#237804"]
-  const coverageSeries = grades.map((grade, index) => ({
-    name: grade,
-    type: "line",
-    stack: "覆盖等级",
-    data: rows.map((row) => Number(row[grade] || 0)),
-    symbol: "none",
-    lineStyle: { width: 0.8, color: colors[index] },
-    areaStyle: { color: colors[index], opacity: 0.72 }
-  }))
-  return {
-    animation: false,
-    tooltip: { trigger: "axis" },
-    legend: { top: 0, data: [...grades, "平均NDVI"] },
-    grid: { left: 48, right: 48, top: 58, bottom: 30 },
-    xAxis: { type: "category", boundaryGap: false, data: rows.map((row) => row["月份"]) },
-    yAxis: [
-      { type: "value", min: 0, max: 100, name: "覆盖占比", axisLabel: { formatter: "{value}%" } },
-      { type: "value", min: 0, max: 1, name: "NDVI" }
-    ],
-    series: [...coverageSeries, { name: "平均NDVI", type: "line", yAxisIndex: 1, data: rows.map((row) => Number(row.NDVI || 0)), smooth: true, symbolSize: 5, lineStyle: { width: 2, color: "#fadb14" } }]
-  }
-}
-
 export function buildStatsChartOption(key: StatsChartKey, rows: StatsRow[]) {
   if (key === "population") {
     return buildPopulationOption(rows)
@@ -210,8 +183,5 @@ export function buildStatsChartOption(key: StatsChartKey, rows: StatsRow[]) {
   if (key === "economy") {
     return buildEconomyOption(rows)
   }
-  if (key === "radiation") {
-    return buildRadiationOption(rows)
-  }
-  return buildVegetationOption(rows)
+  return buildRadiationOption(rows)
 }

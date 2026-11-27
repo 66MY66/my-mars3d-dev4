@@ -92,22 +92,10 @@ describe("statistics chart model", () => {
     expect(option.series[4].data).toEqual([["2026-01", 36]])
   })
 
-  it("renders vegetation as stacked coverage areas with an NDVI line", () => {
-    const option: any = buildStatsChartOption("vegetation", [
-      { 月份: "2026-01", 无植被: 10, 低覆盖: 20, 中覆盖: 30, 中高覆盖: 25, 高覆盖: 15, NDVI: 0.48 }
-    ])
-
-    expect(option.yAxis[0].max).toBe(100)
-    expect(option.series.slice(0, 5).every((item: any) => item.type === "line" && item.stack === "覆盖等级" && item.areaStyle)).toBe(true)
-    expect(option.series[5].name).toBe("平均NDVI")
-    expect(option.series[5].yAxisIndex).toBe(1)
-  })
-
   it("describes the grouping basis for each card", () => {
     expect(getStatsDivisionLabel("population")).toBe("人口栅格 · 行政区汇总")
     expect(getStatsDivisionLabel("housing")).toBe("建筑结构 · 抗震等级")
     expect(getStatsDivisionLabel("economy")).toBe("区域经济贡献")
     expect(getStatsDivisionLabel("radiation")).toBe("月份 · 异常等级")
-    expect(getStatsDivisionLabel("vegetation")).toBe("月份 · 覆盖等级")
   })
 })

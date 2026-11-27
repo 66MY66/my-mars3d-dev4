@@ -17,6 +17,10 @@
           <div class="auto-refresh" title="自动刷新">
             <a-switch v-model:checked="statsUi.autoRefresh" class="stats-auto-refresh-switch" size="small" @change="handleStatsAutoRefreshChange" />
           </div>
+          <div class="stats-view-switch" role="group" aria-label="视图切换" title="视图切换" @mousedown.stop>
+            <button type="button" :class="{ 'is-active': statsLayout === 'list' }" :aria-pressed="statsLayout === 'list'" @click="setStatsLayout('list')">列表</button>
+            <button type="button" :class="{ 'is-active': statsLayout === 'tabs' }" :aria-pressed="statsLayout === 'tabs'" @click="setStatsLayout('tabs')">页签</button>
+          </div>
           <button class="stats-toolbar-btn" type="button" title="刷新" aria-label="刷新" @click="resetStatsPanelPosition">
             <mars-icon icon="refresh" width="16" />
           </button>
@@ -79,20 +83,36 @@
           </div>
         </div>
 
+        <div v-if="statsLayout === 'tabs'" class="stats-tab-bar" role="tablist" aria-label="统计卡片">
+          <button
+            v-for="c in orderedStatsCards"
+            :key="c.key"
+            type="button"
+            role="tab"
+            class="stats-tab"
+            :class="{ 'is-active': tabActiveKey === c.key }"
+            :aria-selected="tabActiveKey === c.key"
+            :title="c.title"
+            @click="activateStatsTab(c.key)"
+          >
+            {{ c.title }}
+          </button>
+        </div>
+
         <div class="stats-cards">
           <div
-            v-for="c in orderedStatsCards"
+            v-for="c in displayedStatsCards"
             :key="c.key"
             class="stats-card"
             :class="{ 'is-dragging': draggedCardKey === c.key, 'is-drop-target': dragOverCardKey === c.key }"
-            :draggable="statsUi.reorderMode"
+            :draggable="statsLayout === 'list' && statsUi.reorderMode"
             @dragstart="handleCardDragStart(c.key, $event)"
             @dragenter.prevent="handleCardDragEnter(c.key)"
             @dragover.prevent
             @drop.prevent="handleCardDrop(c.key)"
             @dragend="handleCardDragEnd"
           >
-            <div class="card-head">
+            <div v-if="statsLayout === 'list'" class="card-head">
               <div class="card-head-left">
                 <span class="card-name">{{ c.title }}</span>
                 <span class="card-division">{{ getStatsDivisionLabel(c.key) }}</span>
@@ -131,7 +151,7 @@
               <span>{{ Math.round(populationOnMapOpacity * 100) }}%</span>
             </div>
 
-            <div v-if="!statsUi.collapsed[c.key]" class="card-body">
+            <div v-if="isStatsCardBodyVisible(c.key)" class="card-body">
               <div v-if="c.key === 'population'" class="population-view-switch">
                 <span class="population-profile-caption">纬向剖面 · 当前纬度 {{ populationProfileLatitudeText }}</span>
               </div>
@@ -175,6 +195,7 @@
               </div>
 
               <div class="card-actions">
+                <a-button v-if="statsLayout === 'tabs'" size="small" @click="toggleStatsOnMapUi(c.key)">{{ statsOnMapUi[c.key] ? "取消上图" : "上图展示" }}</a-button>
                 <a-button size="small" :disabled="!canExportCard(c.key)" @click="exportCardExcel(c.key)">导出Excel</a-button>
                 <a-button size="small" :disabled="!canExportCard(c.key)" @click="exportCardImage(c.key)">导出图片</a-button>
                 <a-button size="small" :disabled="!canExportCard(c.key)" @click="exportCardPdf(c.key)">下载PDF</a-button>
@@ -696,20 +717,18 @@ const statsUi = reactive<{
 }>({
   autoRefresh: false,
   reorderMode: false,
-  cardsOrder: ["population", "economy", "housing", "radiation", "vegetation"],
+  cardsOrder: ["population", "economy", "housing", "radiation"],
   collapsed: {
     population: false,
     economy: false,
     housing: false,
-    radiation: false,
-    vegetation: false
+    radiation: false
   },
   level: {
     population: 2,
     economy: 2,
     housing: 2,
-    radiation: 2,
-    vegetation: 2
+    radiation: 2
   }
 })
 
@@ -717,17 +736,18 @@ const statsCards = [
   { key: "population", title: "人口分布统计", hasLevel: false },
   { key: "economy", title: "经济分布统计", hasLevel: false },
   { key: "housing", title: "房屋抗震等级分布", hasLevel: false },
-  { key: "radiation", title: "热辐射时序变化", hasLevel: false },
-  { key: "vegetation", title: "植被覆盖变化", hasLevel: false }
+  { key: "radiation", title: "热辐射时序变化", hasLevel: false }
 ] as const
 type StatsCardKey = (typeof statsCards)[number]["key"]
+const statsCardKeySet = new Set<string>(statsCards.map((card) => card.key))
+const statsLayout = ref<"list" | "tabs">("list")
+const tabActiveKey = ref<StatsCardKey>("population")
 
 const statsOnMapUi = reactive<Record<StatsCardKey, boolean>>({
   population: false,
   economy: false,
   housing: false,
-  radiation: false,
-  vegetation: false
+  radiation: false
 })
 const populationWm3dUrl = "http://192.168.10.15:9002/rs-products/spatial/china-2020/pop2020_surface.bin"
 let populationWm3dPromise: Promise<PopulationWm3d> | null = null
@@ -757,6 +777,14 @@ const orderedStatsCards = computed(() => {
   })
   byKey.forEach((v) => ordered.push(v))
   return ordered
+})
+
+const displayedStatsCards = computed(() => {
+  if (statsLayout.value !== "tabs") {
+    return orderedStatsCards.value
+  }
+  const active = orderedStatsCards.value.find((card) => card.key === tabActiveKey.value)
+  return active ? [active] : orderedStatsCards.value.slice(0, 1)
 })
 
 const chartEls = new Map<string, HTMLElement>()
@@ -790,8 +818,7 @@ const statsCardState = reactive<Record<string, StatsCardState>>({
   population: { loading: false, empty: false, error: null },
   economy: { loading: false, empty: false, error: null },
   housing: { loading: false, empty: false, error: null },
-  radiation: { loading: false, empty: false, error: null },
-  vegetation: { loading: false, empty: false, error: null }
+  radiation: { loading: false, empty: false, error: null }
 })
 const draggedCardKey = ref<string>("")
 const dragOverCardKey = ref<string>("")
@@ -917,13 +944,13 @@ function loadPrefs() {
         statsUi.autoRefresh = data.statsUi.autoRefresh
       }
       if (Array.isArray(data.statsUi.cardsOrder)) {
-        statsUi.cardsOrder = data.statsUi.cardsOrder
+        statsUi.cardsOrder = normalizeStatsCardOrder(data.statsUi.cardsOrder)
       }
       if (data.statsUi.collapsed && typeof data.statsUi.collapsed === "object") {
-        Object.assign(statsUi.collapsed, data.statsUi.collapsed)
+        Object.assign(statsUi.collapsed, pickKnownStatsCardRecord(data.statsUi.collapsed))
       }
       if (data.statsUi.level && typeof data.statsUi.level === "object") {
-        Object.assign(statsUi.level, data.statsUi.level)
+        Object.assign(statsUi.level, pickKnownStatsCardRecord(data.statsUi.level))
       }
     }
     if (data?.unitPrefs) {
@@ -1291,9 +1318,6 @@ function getCardValueByKey(key: StatsCardKey, row: Record<string, any>) {
   if (key === "housing") {
     return Math.max(0, Number(row["高风险"] || 0) + Number(row["较高风险"] || 0))
   }
-  if (key === "vegetation") {
-    return Math.max(0, Number(row.NDVI || 0))
-  }
   return Math.max(0, Number(row["数值"] || 0))
 }
 
@@ -1657,13 +1681,13 @@ function buildCardData(key: StatsCardKey): Array<Record<string, any>> {
   })
   // #endregion
 
-  if (key === "radiation" || key === "vegetation") {
+  if (key === "radiation") {
     const rows: Array<Record<string, any>> = []
     const start = new Date()
     start.setMonth(start.getMonth() - 11)
     start.setDate(1)
-    const base = key === "radiation" ? 30 + rnd() * 20 : 0.35 + rnd() * 0.25
-    const amp = key === "radiation" ? 10 + rnd() * 18 : 0.08 + rnd() * 0.12
+    const base = 30 + rnd() * 20
+    const amp = 10 + rnd() * 18
     for (let i = 0; i < 12; i++) {
       const d = new Date(start)
       d.setMonth(start.getMonth() + i)
@@ -1672,39 +1696,18 @@ function buildCardData(key: StatsCardKey): Array<Record<string, any>> {
       const seasonal = Math.sin((i / 12) * Math.PI * 2) * amp
       const noise = (rnd() - 0.5) * amp * 0.25
       const v = Math.max(0, base + seasonal + noise)
-      if (key === "radiation") {
-        const baseline = Math.max(0, base + seasonal * 0.72)
-        const tolerance = Math.max(3, amp * 0.32)
-        const lower = Math.max(0, baseline - tolerance)
-        const upper = baseline + tolerance
-        rows.push({
-          月份: label,
-          数值: Number(v.toFixed(2)),
-          基准值: Number(baseline.toFixed(2)),
-          正常下限: Number(lower.toFixed(2)),
-          正常上限: Number(upper.toFixed(2)),
-          异常: v < lower || v > upper
-        })
-      } else {
-        const ndvi = Math.max(0, Math.min(1, v))
-        const high = Math.max(5, Math.min(65, ndvi * 72 + (rnd() - 0.5) * 5))
-        const mediumHigh = Math.max(8, 24 + ndvi * 10 + (rnd() - 0.5) * 4)
-        const medium = Math.max(8, 32 - ndvi * 16 + (rnd() - 0.5) * 4)
-        const low = Math.max(4, 22 - ndvi * 14 + (rnd() - 0.5) * 3)
-        const bare = Math.max(2, 14 - ndvi * 10 + (rnd() - 0.5) * 2)
-        const sum = high + mediumHigh + medium + low + bare
-        const percentages = [bare, low, medium, mediumHigh, high].map((item) => Number(((item / sum) * 100).toFixed(1)))
-        percentages[4] = Number((100 - percentages.slice(0, 4).reduce((total, item) => total + item, 0)).toFixed(1))
-        rows.push({
-          月份: label,
-          无植被: percentages[0],
-          低覆盖: percentages[1],
-          中覆盖: percentages[2],
-          中高覆盖: percentages[3],
-          高覆盖: percentages[4],
-          NDVI: Number(ndvi.toFixed(3))
-        })
-      }
+      const baseline = Math.max(0, base + seasonal * 0.72)
+      const tolerance = Math.max(3, amp * 0.32)
+      const lower = Math.max(0, baseline - tolerance)
+      const upper = baseline + tolerance
+      rows.push({
+        月份: label,
+        数值: Number(v.toFixed(2)),
+        基准值: Number(baseline.toFixed(2)),
+        正常下限: Number(lower.toFixed(2)),
+        正常上限: Number(upper.toFixed(2)),
+        异常: v < lower || v > upper
+      })
     }
     statsUpdatedAtByKey.set(key, now)
     // #region debug-point D:build-card-output-timeseries
@@ -2057,6 +2060,72 @@ function setChartEl(key: string, el: HTMLElement | null) {
     initOrReinitChart(key as StatsCardKey)
     renderCard(key as StatsCardKey)
   }
+}
+
+function normalizeStatsCardOrder(order: unknown): string[] {
+  const incoming = Array.isArray(order) ? order.map((item) => String(item)) : []
+  const next: string[] = []
+  incoming.forEach((key) => {
+    if (statsCardKeySet.has(key) && !next.includes(key)) {
+      next.push(key)
+    }
+  })
+  statsCards.forEach((card) => {
+    if (!next.includes(card.key)) {
+      next.push(card.key)
+    }
+  })
+  return next
+}
+
+function pickKnownStatsCardRecord(record: Record<string, any>) {
+  const next: Record<string, any> = {}
+  Object.keys(record || {}).forEach((key) => {
+    if (statsCardKeySet.has(key)) {
+      next[key] = record[key]
+    }
+  })
+  return next
+}
+
+function isStatsCardBodyVisible(key: string) {
+  if (statsLayout.value === "tabs") {
+    return true
+  }
+  return !statsUi.collapsed[key]
+}
+
+function resizeStatsCharts() {
+  chartInstances.forEach((chart) => {
+    try {
+      chart.resize?.()
+    } catch {}
+  })
+}
+
+async function setStatsLayout(layout: "list" | "tabs") {
+  if (statsLayout.value === layout) {
+    return
+  }
+  statsLayout.value = layout
+  if (layout === "tabs") {
+    statsUi.reorderMode = false
+    draggedCardKey.value = ""
+    dragOverCardKey.value = ""
+    if (!statsCardKeySet.has(tabActiveKey.value)) {
+      tabActiveKey.value = statsCards[0].key
+    }
+  }
+  await nextTick()
+  requestAnimationFrame(resizeStatsCharts)
+}
+
+function activateStatsTab(key: string) {
+  if (statsLayout.value !== "tabs" || tabActiveKey.value === key || !statsCardKeySet.has(key)) {
+    return
+  }
+  tabActiveKey.value = key as StatsCardKey
+  nextTick(() => requestAnimationFrame(resizeStatsCharts))
 }
 
 async function toggleCardCollapsed(key: string) {
@@ -2874,15 +2943,15 @@ async function applyStatsPlayback(record: StatsPlaybackRecord) {
   Object.assign(unitPrefs, record.unitPrefs || {})
   Object.assign(model, record.model || {})
   statsUi.autoRefresh = !!record.statsUi?.autoRefresh
-  statsUi.cardsOrder = Array.isArray(record.statsUi?.cardsOrder) ? [...record.statsUi.cardsOrder] : [...statsUi.cardsOrder]
+  statsUi.cardsOrder = normalizeStatsCardOrder(record.statsUi?.cardsOrder?.length ? record.statsUi.cardsOrder : statsUi.cardsOrder)
   Object.keys(statsUi.collapsed).forEach((key) => {
     statsUi.collapsed[key] = false
   })
-  Object.assign(statsUi.collapsed, record.statsUi?.collapsed || {})
+  Object.assign(statsUi.collapsed, pickKnownStatsCardRecord(record.statsUi?.collapsed || {}))
   Object.keys(statsUi.level).forEach((key) => {
     statsUi.level[key] = 2
   })
-  Object.assign(statsUi.level, record.statsUi?.level || {})
+  Object.assign(statsUi.level, pickKnownStatsCardRecord(record.statsUi?.level || {}))
   updateMetrics(cloneRing(record.ring), record.source === "none" ? undefined : record.source)
   statsVisible.value = true
   await nextTick()
@@ -4501,6 +4570,7 @@ onUnmounted(() => {
   min-height: 0;
   overflow: auto;
   display: grid;
+  align-content: start;
   gap: 10px;
   padding-right: 2px;
 }
@@ -4517,6 +4587,9 @@ onUnmounted(() => {
   border-radius: var(--popup-item-radius, 8px);
   padding: 10px;
   display: grid;
+  align-content: start;
+  align-self: start;
+  grid-auto-rows: max-content;
   gap: 8px;
   transition: border-color 0.2s ease, background-color 0.2s ease, opacity 0.2s ease;
 }
@@ -4564,7 +4637,68 @@ onUnmounted(() => {
 
 .stats-cards {
   display: grid;
+  align-content: start;
+  align-self: start;
   gap: 10px;
+}
+
+.stats-view-switch {
+  display: inline-flex;
+  align-items: center;
+  height: 28px;
+  padding: 2px;
+  border: 1px solid var(--overlay-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.stats-view-switch button {
+  height: 22px;
+  padding: 0 10px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 22px;
+  cursor: pointer;
+}
+
+.stats-view-switch button.is-active {
+  background: var(--primary-color, #2d8cf0);
+  color: #fff;
+}
+
+.stats-tab-bar {
+  display: flex;
+  align-items: center;
+  align-self: start;
+  height: 32px;
+  gap: 6px;
+}
+
+.stats-tab {
+  flex: 1 1 0;
+  min-width: 0;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--overlay-border);
+  border-radius: var(--popup-item-radius, 8px);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 30px;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stats-tab.is-active {
+  border-color: rgba(45, 140, 240, 0.68);
+  background: rgba(45, 140, 240, 0.16);
+  color: var(--text-primary);
+  font-weight: 650;
 }
 
 .card-head {
@@ -4618,6 +4752,8 @@ onUnmounted(() => {
 
 .card-body {
   display: grid;
+  align-content: start;
+  grid-auto-rows: max-content;
   gap: 8px;
 }
 
@@ -4655,8 +4791,10 @@ onUnmounted(() => {
 
 .chart-wrap {
   border: 1px solid var(--overlay-border);
+  height: 220px;
   min-height: 220px;
   position: relative;
+  overflow: hidden;
 }
 
 .chart-wrap.is-loading,
@@ -4676,20 +4814,31 @@ onUnmounted(() => {
   align-items: stretch;
 }
 
+.chart-wrap.population-profile > * {
+  min-height: 0;
+  min-width: 0;
+  height: 100%;
+}
+
 .population-latitude-control {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   justify-items: center;
   gap: 5px;
+  height: 100%;
+  min-height: 0;
   padding: 8px 4px;
   border-right: 1px solid var(--overlay-border);
   color: var(--text-secondary);
   font-size: 10px;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .population-latitude-slider {
   width: 18px;
-  height: 164px;
+  height: 100%;
+  min-height: 0;
   margin: 0;
   direction: rtl;
   writing-mode: vertical-lr;
@@ -4707,14 +4856,21 @@ onUnmounted(() => {
 }
 
 .chart {
-  height: 220px;
+  height: 100%;
   width: 100%;
 }
 
 .card-actions {
+  position: relative;
+  z-index: 1;
   display: flex;
-  gap: 8px;
+  align-items: center;
   justify-content: flex-end;
+  gap: 8px;
+}
+
+.card-actions .ant-btn {
+  margin: 0;
 }
 
 .playback-card {
