@@ -13,8 +13,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onBeforeUnmount, watch } from "vue"
-import { useRoute } from "vue-router"
+import { computed, nextTick, onMounted, onBeforeUnmount, watch } from "vue"
+import { useRoute, useRouter } from "vue-router"
 import { useWidget } from "@mars/common/store/widget"
 import { setCurrentDataset } from "@/shell/currentDataset"
 import { $message } from "@mars/components/mars-ui/index"
@@ -23,10 +23,12 @@ import { getQueryString } from "@mars/utils/mars-util"
 import ShellLayout from "@/shell/ShellLayout.vue"
 import MapFloatBall from "@/shell/components/MapFloatBall.vue"
 import TopModulesDropdown from "@/shell/components/TopModulesDropdown.vue"
+import { getModuleAction } from "@/shell/components/topModules"
 import { selectTaskPublication, TASK_PUBLICATION_VIEW_EVENT, type TaskPublicationSelection } from "@/widgets/basic/current-task/publication-host"
 
 const sceneUrl = computed(() => getQueryString("url"))
 const route = useRoute()
+const router = useRouter()
 const { activate } = useWidget()
 let publicationNavigation = 0
 async function openTaskPublication(selection: TaskPublicationSelection) {
@@ -47,6 +49,20 @@ watch(() => route.fullPath, () => {
   if (taskSection === "thematics" && typeof datasetId === "string" && typeof publicationId === "string") {
     openTaskPublication({ section: taskSection, datasetId, publicationId })
   } else { publicationNavigation++ }
+}, { immediate: true })
+
+watch(() => route.query.open, async (value) => {
+  const action = getModuleAction({ open: value })
+  if (!action) { return }
+  await nextTick()
+  if (action === "layers") {
+    activate("manage-layers", false)
+  } else {
+    window.dispatchEvent(new CustomEvent("cui:open"))
+  }
+  const query = { ...route.query }
+  delete query.open
+  await router.replace({ path: route.path, query })
 }, { immediate: true })
 function handlePublicationView(event: Event) {
   const detail = (event as CustomEvent<TaskPublicationSelection>).detail

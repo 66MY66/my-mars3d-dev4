@@ -44,7 +44,6 @@
           @select="handleSelect"
           @create="openCreate"
           @layout-change="handleLayoutChange"
-          @panel-visibility-change="(v: boolean) => { if (v) { entryRef?.reload?.() } }"
         />
 
         <DatasetDetail
@@ -63,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from "vue"
+import { computed, nextTick, ref, watch } from "vue"
 import useLifecycle from "@mars/common/uses/use-lifecycle"
 import { $message } from "@mars/components/mars-ui/index"
 import { useWidget } from "@mars/common/store/widget"
@@ -130,11 +129,18 @@ function restoreDetailIfNeeded() {
 
 watch(
   () => dialogVisible.value,
-  (visible) => {
+  async (visible) => {
+    // DatasetEntry is kept alive while the widget is closed. Synchronize its
+    // polling state explicitly so hidden panels do not keep refreshing.
+    await nextTick()
+    entryRef.value?.setPanelVisible?.(visible)
     if (!visible) {
       return
     }
     restoreDetailIfNeeded()
+    if (viewMode.value === "list") {
+      entryRef.value?.reload?.()
+    }
   },
   { immediate: true }
 )

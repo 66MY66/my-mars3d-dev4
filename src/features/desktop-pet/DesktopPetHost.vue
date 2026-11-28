@@ -117,6 +117,11 @@ function onClick() {
   }, 1300)
 }
 
+function onOpenRequest() {
+  dialogOpen.value = true
+  mode.value = "greet"
+}
+
 function keepInsideViewport() {
   position.value = clampPetPosition(position.value, viewportSize(), PET_SIZE)
   localStorage.setItem(STORAGE_KEY, JSON.stringify(position.value))
@@ -127,6 +132,7 @@ onMounted(() => {
   window.addEventListener("pointerup", onPointerUp)
   window.addEventListener("pointercancel", onPointerUp)
   window.addEventListener("resize", keepInsideViewport)
+  window.addEventListener("cui:open", onOpenRequest)
 })
 
 onBeforeUnmount(() => {
@@ -134,6 +140,7 @@ onBeforeUnmount(() => {
   window.removeEventListener("pointerup", onPointerUp)
   window.removeEventListener("pointercancel", onPointerUp)
   window.removeEventListener("resize", keepInsideViewport)
+  window.removeEventListener("cui:open", onOpenRequest)
   if (reactionTimer) { window.clearTimeout(reactionTimer) }
 })
 </script>

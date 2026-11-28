@@ -1628,6 +1628,7 @@ onMounted(() => {
   })
   loadDirectoryLocks().catch(() => {})
   window.addEventListener("mars3d:forget-layer-ui-state", onForgetLayerUiState)
+  window.addEventListener("mars3d_layersChanged", handleLayersChanged)
   initTree()
   nextTick(() => {
     applyFocusFromWidgetData()
@@ -1645,6 +1646,7 @@ watch(
 
 onUnmounted(() => {
   window.removeEventListener("mars3d:forget-layer-ui-state", onForgetLayerUiState)
+  window.removeEventListener("mars3d_layersChanged", handleLayersChanged)
   cleanupLayerDragSession()
   disposeDatasetChange?.()
   disposeDatasetChange = null
@@ -1653,6 +1655,12 @@ onUnmounted(() => {
   disable("layer-scenetree")
   updateWidget("toolbar", "manage-layer")
 })
+
+function handleLayersChanged() {
+  // Layer creation/removal may complete after the dialog opens. Rebuild only
+  // the tree; initTree must not overwrite the map's current visibility.
+  nextTick(() => initTree())
+}
 
 currentWidget.onUpdate(() => {
   keyword.value = ""
@@ -1808,6 +1816,8 @@ function initTree() {
     return layer.show !== false
   })
   checkedKeys.value = Array.from(new Set([...fromLayers, ...fromTree]))
+  // Apply the resolved state only for controllable layers. Existing visible
+  // layers are included above, so rebuilding the tree does not hide them.
   applyCheckedToLayers(checkedKeys.value)
 
   if (persisted.expandedKeys) {

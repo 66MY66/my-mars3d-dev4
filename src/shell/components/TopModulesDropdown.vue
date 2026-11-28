@@ -65,8 +65,13 @@ async function onModuleClick(module: ModuleItem) {
 
   if (module.id === VISUALIZATION_MODULE_ID) {
     reloadInitial3DView()
+    return
   }
-  // Other subsystem pages are not connected yet; leave the active state unchanged.
+
+  if (module.id === "anomaly-monitoring" || module.id === "loss-assessment") {
+    const open = module.id === "anomaly-monitoring" ? "layers" : "cui"
+    await router.push({ path: "/", query: { ...route.query, open } })
+  }
 }
 </script>
 

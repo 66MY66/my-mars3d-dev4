@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { getInitialModuleId, getNavigableModuleId } from "./topModules"
+import { getInitialModuleId, getNavigableModuleId, getModuleAction } from "./topModules"
 
 describe("top module navigation state", () => {
   it("defaults to visualization outside the data-management route", () => {
@@ -16,5 +16,11 @@ describe("top module navigation state", () => {
   it("switches the active module only for connected subsystems", () => {
     expect(getNavigableModuleId("data-management", "visualization")).toBe("data-management")
     expect(getNavigableModuleId("visualization", "data-management")).toBe("visualization")
+  })
+
+  it("recognizes navigation actions carried by the visualization route", () => {
+    expect(getModuleAction({ open: "layers" })).toBe("layers")
+    expect(getModuleAction({ open: "cui" })).toBe("cui")
+    expect(getModuleAction({ open: "unknown" })).toBeUndefined()
   })
 })
