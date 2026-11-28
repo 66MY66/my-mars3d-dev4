@@ -101,6 +101,8 @@ const {
   onMounted,
   onUnmounted,
   listDatasetSessions,
+  listImportedSessions,
+  sessionMatchesDataset,
   persistSession,
   getPersistedSession,
   removePersistedSession,
@@ -160,6 +162,21 @@ describe("current-task/map", () => {
       source: "repository",
       groupName: "仓库导入"
     })
+  })
+
+  it("lists every imported dataset still on the map", () => {
+    const map = createMapFixture()
+    map.addLayer({ id: "eoapi_group_alpha_1000", name: "导入: 数据集甲" })
+    map.addLayer({ id: "eoapi_group_beta_2000", name: "导入: 数据集乙" })
+    onMounted(map as any)
+
+    const sessions = listImportedSessions()
+
+    expect(sessions.map((session) => session.datasetId)).toEqual(["beta", "alpha"])
+    expect(listDatasetSessions("alpha")).toHaveLength(1)
+    expect(listDatasetSessions("beta")).toHaveLength(1)
+    expect(sessionMatchesDataset(sessions[1], "alpha")).toBe(true)
+    expect(sessionMatchesDataset(sessions[0], "alpha")).toBe(false)
   })
 
   it("persists and removes session metadata by group id", () => {

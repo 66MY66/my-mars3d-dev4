@@ -1,6 +1,6 @@
 <template>
   <section class="published-maps" aria-label="已发布专题图">
-    <header><strong>已发布专题图<span v-if="records.length">（{{ records.length }}）</span></strong><button type="button" :disabled="loading" @click="refresh">刷新</button></header>
+    <header><strong>已发布专题图<span v-if="records.length">（{{ records.length }}）</span></strong><button type="button" :disabled="loading" @click="refreshPublished">刷新</button></header>
     <p v-if="loading" role="status">正在读取已发布图件…</p>
     <p v-if="error" class="publication-error" role="alert">{{ error }}</p>
     <article v-for="record in records" :key="record.id" :class="{ highlighted: record.id === highlightId }">
@@ -27,7 +27,7 @@ import { downloadBlob } from "../thematic-workbench/export-media"
 import { listTaskPublications, readTaskPublication, TASK_PUBLICATION_EVENT, type TaskPublication } from "./thematic-publications"
 
 const props = defineProps<{ datasetId: string; active: boolean; refreshKey?: number; highlightId?: string }>()
-const emit = defineEmits<{ count: [value: number] }>()
+const emit = defineEmits<{ count: [value: number]; refresh: [] }>()
 const records = ref<TaskPublication[]>([])
 const loading = ref(false)
 const busy = ref(false)
@@ -42,6 +42,11 @@ function closePreview() {
   previewOpen.value = false
   if (previewUrl.value) { URL.revokeObjectURL(previewUrl.value) }
   previewUrl.value = ""
+}
+
+function refreshPublished() {
+  emit("refresh")
+  refresh()
 }
 
 async function refresh() {
@@ -111,6 +116,7 @@ onBeforeUnmount(() => { disposed = true; revision++; closePreview(); window.remo
 .published-maps { margin-bottom: 14px; color: var(--mars-text-color, #172b45); }
 header, .publication-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
 header { padding: 8px 0; }
+header > button { border-radius: 8px !important; }
 article { margin: 8px 0; padding: 12px; border: 1px solid var(--mars-control-border, #cbd5e1); border-radius: 6px; }
 article.highlighted { border-color: #1677ff; }
 article strong { display: block; overflow-wrap: anywhere; }

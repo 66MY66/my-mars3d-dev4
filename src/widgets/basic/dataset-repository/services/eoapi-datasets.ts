@@ -245,6 +245,25 @@ async function tryGetDatasetApiRevisionsPage(
   return { success: true, data: normalizeDatasetApiRevisionsToStacItems(collectionId, res.data) }
 }
 
+/** 只返回数据集版本，不回退到影像条目。 */
+export async function listDatasetRevisions(
+  datasetId: string,
+  params?: { limit?: number; offset?: number }
+): Promise<ApiResponse<StacItem[]>> {
+  const id = String(datasetId || "")
+  if (!id) {
+    return { success: false, message: "缺少数据集 ID" }
+  }
+  if (id.startsWith("local_")) {
+    return getItems(id, params)
+  }
+  const apiRes = await tryGetDatasetApiRevisionsPage(id, params)
+  if (apiRes.success && apiRes.data) {
+    return { success: true, data: apiRes.data.items, code: apiRes.data.items.length }
+  }
+  return { success: false, message: apiRes.message || "获取版本列表失败", code: apiRes.code }
+}
+
 /**
  * 获取 Collection 中的 Items
  */

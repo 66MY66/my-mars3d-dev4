@@ -1,5 +1,6 @@
 <template>
   <mars-dialog
+    ref="taskDialogRef"
     :visible="panelVisible"
     title="当前任务"
     icon="data-switching"
@@ -54,14 +55,12 @@
 
     <div class="task-panel-body">
             <div class="task-tree">
-              <button class="tree-row root" type="button" @click="toggleRoot">
+              <div class="dataset-switch">
                 <span class="tree-icon"><mars-icon icon="bookmark-one" width="16" /></span>
-                <span class="tree-text">{{ currentDatasetTitle }}</span>
-                <span class="tree-spacer"></span>
-                <span class="tree-caret" :class="{ open: rootOpen }"><mars-icon icon="right" width="16" /></span>
-              </button>
+                <span class="tree-text" :title="currentDatasetTitle">{{ currentDatasetTitle }}</span>
+              </div>
 
-              <div v-if="rootOpen" class="tree-children">
+              <div class="tree-children">
                 <div class="task-section-tabs" role="tablist">
                   <button
                     v-for="tab in sectionTabs"
@@ -92,28 +91,36 @@
                         placeholder="搜索名称/标签"
                         class="layers-search"
                       />
-                      <mars-button size="small" :disabled="taskLocked || !selectedGroupId" @click="openFileImport">
-                        导入文件
-                      </mars-button>
-                      <mars-button size="small" :disabled="taskLocked || !selectedGroupId" @click="batchShowAllLayers">
-                        批量显示
-                      </mars-button>
-                      <mars-button size="small" :disabled="taskLocked || !selectedGroupId" @click="batchHideAllLayers">
-                        批量隐藏
-                      </mars-button>
-                      <mars-button size="small" type="primary" :disabled="taskLocked || !canSyncNow" @click="syncCurrentSession">
-                        一键同步
-                      </mars-button>
-                      <mars-button size="small" type="primary" :disabled="!canOpenSaveDialog" @click="openSaveDialog('save')">
-                        保存到我的仓库
-                      </mars-button>
-                      <mars-button size="small" :disabled="!canOpenSaveDialog" @click="openSaveDialog('publish')">提交发布</mars-button>
-                      <mars-button size="small" :disabled="taskLocked || !selectedGroupId" @click="startQuickCreate('rectangle')">
-                        框选矩形
-                      </mars-button>
-                      <mars-button size="small" :disabled="taskLocked || !selectedGroupId" @click="startQuickCreate('polygon')">
-                        框选多边形
-                      </mars-button>
+                      <div class="layers-toolbar-row">
+                        <mars-button class="task-round-btn" size="small" :disabled="taskLocked || !selectedGroupId" @click="openFileImport">
+                          导入文件
+                        </mars-button>
+                        <mars-button class="task-round-btn" size="small" type="primary" :disabled="taskLocked || !canSyncNow" @click="syncCurrentSession">
+                          一键同步
+                        </mars-button>
+                      </div>
+                      <div class="layers-toolbar-row">
+                        <mars-button class="task-round-btn" size="small" :disabled="taskLocked || !selectedGroupId" @click="batchShowAllLayers">
+                          批量显示
+                        </mars-button>
+                        <mars-button class="task-round-btn" size="small" :disabled="taskLocked || !selectedGroupId" @click="batchHideAllLayers">
+                          批量隐藏
+                        </mars-button>
+                      </div>
+                      <div class="layers-toolbar-row">
+                        <mars-button class="task-round-btn" size="small" type="primary" :disabled="!canOpenSaveDialog" @click="openSaveDialog('save')">
+                          保存到我的仓库
+                        </mars-button>
+                        <mars-button class="task-round-btn" size="small" :disabled="!canOpenSaveDialog" @click="openSaveDialog('publish')">提交发布</mars-button>
+                      </div>
+                      <div class="layers-toolbar-row">
+                        <mars-button class="task-round-btn" size="small" :disabled="taskLocked || !selectedGroupId" @click="startQuickCreate('rectangle')">
+                          框选矩形
+                        </mars-button>
+                        <mars-button class="task-round-btn" size="small" :disabled="taskLocked || !selectedGroupId" @click="startQuickCreate('polygon')">
+                          框选多边形
+                        </mars-button>
+                      </div>
                       <a-tooltip v-if="taskLocked" :title="taskLockReason || '已锁定'">
                         <span class="layers-lock">只读中</span>
                       </a-tooltip>
@@ -122,10 +129,13 @@
                       <a-spin v-if="sessionRefreshLoading" size="small" />
                       <span>{{ sessionRefreshText }}</span>
                     </div>
+                    <div class="layer-outline">
                     <mars-tree
                       class="layers-tree"
                       checkable
                       blockNode
+                      :virtual="false"
+                      :show-icon="false"
                       :draggable="!taskLocked"
                       :tree-data="displayTreeData"
                       v-model:expandedKeys="expandedKeys"
@@ -137,13 +147,25 @@
                       @dragstart="onDragStart"
                       @dragend="onDragEnd"
                     >
+                      <template #switcherIcon="switcher">
+                        <span v-if="!switcher.isLeaf" class="tree-caret" :class="{ 'is-open': switcher.expanded }" />
+                      </template>
                       <template #title="node">
                         <mars-dropdown-menu :trigger="['contextmenu']">
-                          <span class="node-title" @click.stop="focusNode(node)" @dblclick.stop="focusNode(node)">
-                            <template v-for="(seg, idx) in getHighlightedText(String(node.title || ''), layerSearch)" :key="idx">
-                              <span v-if="seg.matched" class="node-highlight">{{ seg.text }}</span>
-                              <span v-else>{{ seg.text }}</span>
-                            </template>
+                          <div class="node-block" @click.stop="toggleGroupExpand(node)" @dblclick.stop="toggleGroupExpand(node)">
+                            <span class="node-main">
+                              <mars-icon
+                                class="node-type-icon"
+                                :icon="node.group ? (node.expanded ? 'folder-open' : 'folder-close') : 'bring-to-front'"
+                                :width="16"
+                              />
+                              <span class="node-name" :title="String(node.title || '')">
+                                <template v-for="(seg, idx) in getHighlightedText(String(node.title || ''), layerSearch)" :key="idx">
+                                  <span v-if="seg.matched" class="node-highlight">{{ seg.text }}</span>
+                                  <span v-else>{{ seg.text }}</span>
+                                </template>
+                              </span>
+                            </span>
                             <span v-if="Array.isArray((node as any)._tags) && (node as any)._tags.length" class="node-tags">
                               <a-tag
                                 v-for="t in (node as any)._tags"
@@ -157,22 +179,9 @@
                                 </template>
                               </a-tag>
                             </span>
-                            <span v-if="!taskLocked && !node.disabled && !node.group" class="node-hover-actions" @click.stop>
-                              <a-button type="text" size="small" class="node-hover-action" @click="toggleNodeShow(node)">
-                                {{ node.checked ? "隐藏" : "显示" }}
-                              </a-button>
-                              <a-button type="text" size="small" class="node-hover-action" @click="focusNode(node)">定位</a-button>
-                              <a-button type="text" size="small" class="node-hover-action" @click="moveNode(node, 'up')">上移</a-button>
-                              <a-button type="text" size="small" class="node-hover-action" @click="moveNode(node, 'down')">下移</a-button>
-                            </span>
-                          </span>
+                          </div>
                           <template #overlay v-if="!taskLocked && !node.disabled">
                             <a-menu @click="(menu: any) => onContextMenuClick(node, menu.key)">
-                              <a-menu-item v-if="node.hasZIndex" key="top">置为顶层</a-menu-item>
-                              <a-menu-item v-if="node.hasZIndex" key="up">上移一层</a-menu-item>
-                              <a-menu-item v-if="node.hasZIndex" key="down">下移一层</a-menu-item>
-                              <a-menu-item v-if="node.hasZIndex" key="bottom">置为底层</a-menu-item>
-                              <a-menu-divider v-if="node.hasZIndex" />
                               <a-menu-item v-if="node.group" key="expand-all">全部展开</a-menu-item>
                               <a-menu-item v-if="node.group" key="collapse-all">全部折叠</a-menu-item>
                               <a-menu-divider v-if="node.group" />
@@ -200,6 +209,7 @@
                         </span>
                       </template>
                     </mars-tree>
+                    </div>
                   </div>
                 </div>
 
@@ -214,13 +224,9 @@
                       :refresh-key="publishedRefreshKey"
                       :highlight-id="publicationRequest.publicationId"
                       @count="publishedMapsCount = $event"
+                      @refresh="loadThematicsJobs"
                     />
                     <div class="thematics-jobs">
-                      <div class="thematics-header">
-                        <mars-button class="task-round-btn" size="small" @click="loadThematicsJobs" :disabled="thematicsLoading">
-                          刷新
-                        </mars-button>
-                      </div>
 
                       <div v-if="thematicsLoading" class="loading-container">
                         <a-spin tip="加载中..." />
@@ -397,7 +403,7 @@
                     <div v-if="revisionsLoading" class="loading-container">
                       <a-spin tip="加载中..." />
                     </div>
-                    <a-empty v-else-if="revisions.length === 0" description="暂无版本" />
+                    <a-empty v-else-if="revisions.length === 0" :description="revisionsError || '暂无版本'" />
                     <div v-else class="versions-list">
                       <div v-for="item in revisions" :key="item.revisionId" class="version-item">
                         <div class="version-item-info">
@@ -434,20 +440,22 @@
             <div class="recent">
               <div class="recent-title">最近导入</div>
               <div v-if="recentImports.length === 0" class="recent-empty">暂无记录</div>
-              <button
-                v-for="it in recentImports"
-                :key="it.groupId"
-                class="recent-item"
-                type="button"
-                :class="{ active: String(it.groupId) === String(selectedGroupId) }"
-                @click="selectSession(it.groupId)"
-              >
-                <span class="recent-icon">
-                  <mars-icon :icon="it.icon" width="16" />
-                </span>
-                <span class="recent-name" :title="it.name">{{ it.name }}</span>
-                <span class="recent-time">{{ it.time }}</span>
-              </button>
+              <div v-else class="recent-list" :style="recentListStyle">
+                <button
+                  v-for="it in recentImports"
+                  :key="it.groupId"
+                  class="recent-item"
+                  type="button"
+                  :class="{ active: String(it.groupId) === String(selectedGroupId) }"
+                  @click="openRecentImport(it)"
+                >
+                  <span class="recent-icon">
+                    <mars-icon :icon="it.icon" width="16" />
+                  </span>
+                  <span class="recent-name" :title="it.name">{{ it.name }}</span>
+                  <span class="recent-time">{{ it.time }}</span>
+                </button>
+              </div>
             </div>
     </div>
   </mars-dialog>
@@ -548,6 +556,7 @@ import * as mapWork from "./map"
 import { $message } from "@mars/components/mars-ui/index"
 import {
   getCurrentDataset,
+  setCurrentDataset,
   onCurrentDatasetChange,
   getCurrentTaskLock,
   onCurrentTaskLockChange,
@@ -563,7 +572,7 @@ import ArtifactPreview from "../dataset-repository/components/ArtifactPreview.vu
 import DatasetImportModal from "@/components/Dataset/DatasetImportModal.vue"
 import { getArtifacts, getArtifactDownloadUrl, smartUploadArtifact, deleteArtifact, linkArtifactToDataset, formatArtifactSize, getArtifactTypeName } from "../dataset-repository/services/eoapi-artifacts"
 import type { Artifact, ArtifactType, Manifest, ServiceRef, ThematicJob, ThematicJobResult } from "../dataset-repository/types/eoapi-types"
-import { getItems, getLatestDatasetManifest, getRevisionManifest, forkDataset, saveDatasetRevision } from "../dataset-repository/services/eoapi-datasets"
+import { listDatasetRevisions, getLatestDatasetManifest, getRevisionManifest, forkDataset, saveDatasetRevision } from "../dataset-repository/services/eoapi-datasets"
 import { eoApiConfig } from "../dataset-repository/services/eoapi-config"
 import { connectDatasetSync, disconnectDatasetSync, onDatasetSync, type DatasetSyncDetail } from "../dataset-repository/services/dataset-sync"
 import { getDirectoryLocks, upsertDirectoryLock, type DirectoryLockRecord } from "../dataset-repository/services/eoapi-directory-locks"
@@ -722,20 +731,6 @@ async function handleFileImported(payload: { file: File; geojson: any; artifact?
     await mapWork.flashLayer(id, { times: 3, intervalMs: 500 })
   } catch {
   }
-  try {
-    const dsId = String(currentDataset.value?.datasetId || "local")
-    const manifest = serializeWorkspace(map, { includeViewState: true, includeLayers: true, includeDrawFeatures: true, layerFilter: selectedLayerFilter.value })
-    mapWork.persistSession({
-      datasetId: dsId,
-      groupId,
-      openedAt: Date.now(),
-      source: "unknown",
-      groupName: typeof mapWork.getLayerById(groupId)?.name === "string" ? mapWork.getLayerById(groupId)!.name : undefined,
-      layerIdPrefix: "",
-      manifest
-    } as any)
-  } catch {
-  }
   window.dispatchEvent(new CustomEvent("mars3d_layersChanged"))
 }
 
@@ -814,7 +809,14 @@ async function syncCurrentSession() {
   }
   syncingNow.value = true
   try {
-    const manifest = serializeWorkspace(map, { includeViewState: true, includeLayers: true, includeDrawFeatures: true, layerFilter: selectedLayerFilter.value })
+    const session = sessions.value.find((item) => item.groupId === groupId)
+    const openedAt = session?.openedAt || Date.now()
+    const layerIdPrefix = getSessionLayerPrefix(openedAt, mapWork.getPersistedSession(groupId)?.layerIdPrefix, sessionLayerScope(session))
+    const snapshot = serializeWorkspace(map, { includeViewState: true, includeLayers: true, includeDrawFeatures: true, layerFilter: selectedLayerFilter.value })
+    const manifest = stripManifestScopePrefix({
+      ...snapshot,
+      layers: getSessionManifestLayers(snapshot).filter((layer: any) => String(layer?.id || "") !== groupId)
+    }, layerIdPrefix)
     const res = await saveDatasetRevision(dsId, { message: `同步 ${formatDateTime(Date.now())}`, manifest })
     if (!res.success) {
       $message(res.message || "同步失败")
@@ -823,10 +825,10 @@ async function syncCurrentSession() {
     mapWork.persistSession({
       datasetId: dsId,
       groupId,
-      openedAt: Date.now(),
-      source: "repository",
+      openedAt,
+      source: session?.source || "repository",
       groupName: typeof mapWork.getLayerById(groupId)?.name === "string" ? mapWork.getLayerById(groupId)!.name : undefined,
-      layerIdPrefix: "",
+      layerIdPrefix,
       manifest
     } as any)
     $message("同步成功：已生成新版本")
@@ -992,6 +994,8 @@ function ensureUnlocked(operation: string): boolean {
 }
 
 const sessions = ref<mapWork.DatasetSession[]>([])
+const importedSessions = ref<mapWork.DatasetSession[]>([])
+const pendingGroupId = ref("")
 const selectedGroupId = ref<string>("")
 const selectedDirectoryLock = computed<DirectoryLockRecord | null>(() => {
   const key = String(selectedGroupId.value || "")
@@ -1031,12 +1035,31 @@ async function loadDirectoryLocks() {
   }
 }
 
+function datasetDisplayName(datasetId: string, groupName?: string): string {
+  const current = currentDataset.value
+  if (current?.datasetId === datasetId && current.name) {
+    return current.name
+  }
+  const raw = String(groupName || "").trim()
+  const stripped = raw.replace(/^(导入:\s*|我的仓库\/|遥感影像\/|数据集成果\/)/, "").trim()
+  return stripped || datasetId
+}
+
+function optionSource(source: mapWork.DatasetSession["source"]): CurrentDataset["source"] {
+  if (source === "my-repository" || source === "repository") {
+    return source
+  }
+  return "unknown"
+}
+
+const activeDatasetId = computed(() => String(currentDataset.value?.datasetId || ""))
+
 const currentDatasetTitle = computed(() => {
-  const ds = currentDataset.value
-  if (!ds?.datasetId) {
+  const current = currentDataset.value
+  if (!current?.datasetId) {
     return "当前导入数据集"
   }
-  return ds.name || ds.datasetId
+  return current.name || current.datasetId
 })
 
 let teardownMapWatch: null | (() => void) = null
@@ -1108,25 +1131,42 @@ function applyDirOrderForTree(tree: any[], sessionGroupId: string): any[] {
         return
       }
 
-      const groups = n.children.filter((c: any) => !!c?.group)
-      const others = n.children.filter((c: any) => !c?.group)
-
       const idx = new Map<string, number>()
       desired.forEach((id, i) => idx.set(String(id), i))
 
-      groups.sort((a: any, b: any) => {
+      n.children = n.children.slice().sort((a: any, b: any) => {
         const ai = idx.has(String(a.key)) ? (idx.get(String(a.key)) as number) : Number.MAX_SAFE_INTEGER
         const bi = idx.has(String(b.key)) ? (idx.get(String(b.key)) as number) : Number.MAX_SAFE_INTEGER
         return ai - bi
       })
-
-      n.children = [...groups, ...others]
     })
 
     return out
   }
 
   return walk(Array.isArray(tree) ? tree : [])
+}
+
+function collectChildOrder(tree: any[], parentId: string): string[] {
+  const pid = String(parentId || "")
+  if (!pid) {
+    return []
+  }
+  const stack: any[] = Array.isArray(tree) ? tree.slice() : []
+  while (stack.length) {
+    const node = stack.shift()
+    if (!node) {
+      continue
+    }
+    if (String(node.key || "") === pid) {
+      const children = Array.isArray(node.children) ? node.children : []
+      return children.map((child: any) => String(child.key))
+    }
+    if (Array.isArray(node.children) && node.children.length) {
+      stack.push(...node.children)
+    }
+  }
+  return []
 }
 
 function collectGroupChildOrder(tree: any[], parentId: string): string[] {
@@ -1142,7 +1182,7 @@ function collectGroupChildOrder(tree: any[], parentId: string): string[] {
     }
     if (String(node.key || "") === pid) {
       const children = Array.isArray(node.children) ? node.children : []
-      return children.filter((c: any) => !!c?.group).map((c: any) => String(c.key))
+      return children.filter((child: any) => !!child?.group).map((child: any) => String(child.key))
     }
     if (Array.isArray(node.children) && node.children.length) {
       stack.push(...node.children)
@@ -1198,7 +1238,8 @@ onMounted(() => {
 
   // 监听地图图层变化事件，自动刷新目录（工单 3-32 实时数据同步）
   const handleLayersChanged = () => {
-    if (panelVisible.value && selectedGroupId.value) {
+    if (panelVisible.value) {
+      refreshSessions()
       refreshTree()
     }
   }
@@ -1207,6 +1248,7 @@ onMounted(() => {
   // 监听全局图层变化事件（来自 dataset-repository 等其他 widget 的通知）
   const handleGlobalLayersChanged = () => {
     if (panelVisible.value) {
+      refreshSessions()
       refreshTree()
     }
   }
@@ -1549,6 +1591,7 @@ const PANEL_MIN_HEIGHT = 420
 
 // mars-dialog 定位参照 #mars-main-view（地图区域），贴左且与地图同高
 const dialogPosition = { top: 0, left: 0, bottom: 0 }
+const taskDialogRef = ref<any>(null)
 
 function isAnyDropdownOpen(): boolean {
   const list = Array.from(document.querySelectorAll(".ant-dropdown")) as HTMLElement[]
@@ -1622,7 +1665,7 @@ function resetLayout() {
   localStorage.removeItem(POPOVER_LAYOUT_KEY)
   localStorage.removeItem(DIALOG_PERSIST_KEY)
   manualLayout.value = null
-  clearStepHistory()
+  taskDialogRef.value?.resetLayoutToDefault?.(true)
   updateAnchorRect()
 }
 
@@ -1795,8 +1838,6 @@ function onResizeEnd(e: PointerEvent) {
   }
 }
 
-const rootOpen = ref(true)
-
 type TaskSection = "layers" | "thematics" | "artifacts" | "versions"
 const publicationRequest = useTaskPublicationSelection()
 const activeSection = ref<TaskSection>("layers")
@@ -1804,7 +1845,6 @@ const publishedMapsCount = ref(0)
 const publishedRefreshKey = ref(0)
 watch(publicationRequest, (request) => {
   if (request.section === "thematics" && request.datasetId === currentDataset.value?.datasetId) {
-    rootOpen.value = true
     activeSection.value = "thematics"
     publishedRefreshKey.value++
   }
@@ -1816,10 +1856,6 @@ const sectionTabs = computed(() => [
   { key: "artifacts" as TaskSection, label: "附件", count: artifactsCountText.value },
   { key: "versions" as TaskSection, label: "版本", count: null as string | null }
 ])
-
-function toggleRoot() {
-  rootOpen.value = !rootOpen.value
-}
 
 function switchSection(key: TaskSection) {
   if (activeSection.value === key) {
@@ -1841,10 +1877,18 @@ function isSectionActive(key: TaskSection) {
 }
 
 function refreshSessions() {
+  const all = mapWork.listImportedSessions()
+  importedSessions.value = all
   const id = currentDataset.value?.datasetId || ""
-  const next = mapWork.listDatasetSessions(id)
+  const next = id ? all.filter((session) => mapWork.sessionMatchesDataset(session, id)).slice(0, 20) : []
   sessions.value = next
-  if (!selectedGroupId.value || !next.find((x) => x.groupId === selectedGroupId.value)) {
+  const preferred = pendingGroupId.value
+  if (preferred && next.some((session) => session.groupId === preferred)) {
+    selectedGroupId.value = preferred
+    pendingGroupId.value = ""
+    return
+  }
+  if (!selectedGroupId.value || !next.find((session) => session.groupId === selectedGroupId.value)) {
     selectedGroupId.value = next[0]?.groupId || ""
   }
 }
@@ -1875,15 +1919,57 @@ function setSessionRefreshMessage(message = "", loading = false, autoClearMs = 0
   }
 }
 
-function getSessionLayerPrefix(openedAt: number, layerIdPrefix?: string): string {
-  if (layerIdPrefix !== null && layerIdPrefix !== undefined) {
-    return String(layerIdPrefix)
+function sessionLayerScope(session?: { source?: string; groupId?: string } | null): string {
+  if (session?.source === "my-repository" || String(session?.groupId || "").startsWith("myrepo_group_")) {
+    return "myrepo"
+  }
+  return "eoapi"
+}
+
+function getSessionLayerPrefix(openedAt: number, layerIdPrefix?: string, scope = "eoapi"): string {
+  const explicit = String(layerIdPrefix ?? "").trim()
+  if (explicit) {
+    return explicit
   }
   const datasetId = String(currentDataset.value?.datasetId || "")
   if (!datasetId) {
     return ""
   }
-  return buildScopedLayerPrefix("eoapi", datasetId, openedAt)
+  return buildScopedLayerPrefix(scope, datasetId, openedAt)
+}
+
+function stripScopedId(id: string, prefix: string): string {
+  if (!prefix || !id.startsWith(prefix)) {
+    return id
+  }
+  const next = id.slice(prefix.length)
+  return next || id
+}
+
+function stripManifestScopePrefix(manifest: Manifest, prefix: string): Manifest {
+  if (!prefix) {
+    return manifest
+  }
+  return {
+    ...manifest,
+    layers: getSessionManifestLayers(manifest).map((layer: any) => ({
+      ...layer,
+      id: stripScopedId(String(layer?.id || ""), prefix),
+      pid: layer?.pid === undefined || layer?.pid === null || layer?.pid === "" ? layer?.pid : stripScopedId(String(layer.pid), prefix)
+    })),
+    drawFeatures: (Array.isArray(manifest.drawFeatures) ? manifest.drawFeatures : []).map((feature) => ({
+      ...feature,
+      id: stripScopedId(String(feature?.id || ""), prefix),
+      layerId: feature?.layerId ? stripScopedId(String(feature.layerId), prefix) : feature?.layerId
+    }))
+  }
+}
+
+function manifestAlreadyUsesPrefix(prefix: string, ...manifests: Array<Manifest | null | undefined>): boolean {
+  if (!prefix) {
+    return false
+  }
+  return manifests.some((manifest) => getSessionManifestLayers(manifest).some((layer: any) => String(layer?.id || "").startsWith(prefix)))
 }
 
 function getSessionManifestLayers(manifest?: Manifest | null): any[] {
@@ -1998,7 +2084,8 @@ async function applyDatasetLayerRefresh(detail?: DatasetSyncDetail) {
       if (impactedIds.size === 0) {
         continue
       }
-      const layerIdPrefix = getSessionLayerPrefix(session.openedAt, persisted.layerIdPrefix)
+      const storedPrefix = getSessionLayerPrefix(session.openedAt, persisted.layerIdPrefix, sessionLayerScope(session))
+      const layerIdPrefix = manifestAlreadyUsesPrefix(storedPrefix, persisted.manifest, latestManifest) ? "" : storedPrefix
       const currentGroup = mapWork.getLayerById(session.groupId)
       const groupName = typeof currentGroup?.name === "string"
         ? String(currentGroup.name || "")
@@ -2032,7 +2119,7 @@ async function applyDatasetLayerRefresh(detail?: DatasetSyncDetail) {
         openedAt: session.openedAt,
         source: session.source,
         groupName,
-        layerIdPrefix,
+        layerIdPrefix: storedPrefix,
         manifest: latestManifest
       } as any)
       refreshedSessions += 1
@@ -2081,6 +2168,28 @@ function selectSession(groupId: string) {
   refreshTree()
 }
 
+function resolveRecentDatasetId(session: mapWork.DatasetSession): string {
+  const current = currentDataset.value
+  if (current?.datasetId && mapWork.sessionMatchesDataset(session, current.datasetId)) {
+    return current.datasetId
+  }
+  return session.datasetId
+}
+
+function openRecentImport(item: { groupId: string; datasetId: string; datasetName: string; source: mapWork.DatasetSession["source"] }) {
+  pendingGroupId.value = item.groupId
+  if (activeDatasetId.value !== item.datasetId) {
+    setCurrentDataset({
+      datasetId: item.datasetId,
+      name: item.datasetName,
+      source: optionSource(item.source)
+    })
+    return
+  }
+  pendingGroupId.value = ""
+  selectSession(item.groupId)
+}
+
 function formatDateTime(v: number) {
   const d = new Date(v)
   const yy = d.getFullYear()
@@ -2101,17 +2210,33 @@ function sessionIcon(s: mapWork.DatasetSession) {
   return "warning"
 }
 
+const RECENT_IMPORT_LIMIT = 10
+const RECENT_ROW_HEIGHT = 32
+const RECENT_VISIBLE_ROWS = 3
+
 const recentImports = computed(() => {
-  const dsName = currentDataset.value?.name || currentDataset.value?.datasetId || "当前数据集"
-  return sessions.value.slice(0, 5).map((s) => {
-    const name = s.groupName || dsName
+  return importedSessions.value.slice(0, RECENT_IMPORT_LIMIT).map((session) => {
+    const datasetId = resolveRecentDatasetId(session)
+    const datasetName = datasetDisplayName(datasetId, session.groupName)
     return {
-      groupId: s.groupId,
-      name,
-      time: formatDateTime(s.openedAt),
-      icon: sessionIcon(s)
+      groupId: session.groupId,
+      datasetId,
+      datasetName,
+      source: session.source,
+      name: session.groupName || datasetName,
+      time: formatDateTime(session.openedAt),
+      icon: sessionIcon(session)
     }
   })
+})
+
+const recentListStyle = computed(() => {
+  const count = recentImports.value.length
+  const visible = Math.min(count, RECENT_VISIBLE_ROWS)
+  return {
+    height: `${visible * RECENT_ROW_HEIGHT}px`,
+    overflowY: count > RECENT_VISIBLE_ROWS ? "auto" : "hidden"
+  }
 })
 
 const fullTree = ref<any[]>([])
@@ -2124,6 +2249,7 @@ const displayTreeData = computed(() => {
   return filterTreeByKeyword(fullTree.value, kw).tree
 })
 const expandedKeys = ref<string[]>([])
+const expandedSessionId = ref("")
 const checkedKeys = ref<string[]>([])
 const selectedKeys = ref<string[]>([])
 const opacityValue = ref<Record<string, number>>({})
@@ -2187,6 +2313,7 @@ function refreshTree() {
     selectedKeys.value = []
     defaultExpandedKeys.value = []
     prevExpandedKeys.value = null
+    expandedSessionId.value = ""
     opacityValue.value = {}
     layerCount.value = 0
     return
@@ -2233,15 +2360,35 @@ function refreshTree() {
   layerCount.value = count
 
   checkedKeys.value = showIds
-  expandedKeys.value = openIds
-  defaultExpandedKeys.value = openIds
+  const aliveKeys = collectTreeKeys(orderedTree)
+  if (expandedSessionId.value !== String(groupId)) {
+    expandedKeys.value = openIds.filter((id) => aliveKeys.has(id))
+    expandedSessionId.value = String(groupId)
+  } else {
+    expandedKeys.value = expandedKeys.value.map(String).filter((id) => aliveKeys.has(id))
+  }
+  defaultExpandedKeys.value = expandedKeys.value.slice()
+}
 
-  nextTick(() => {
-    if (!expandedKeys.value.includes(String(groupId))) {
-      expandedKeys.value = Array.from(new Set([...expandedKeys.value, String(groupId)]))
-      defaultExpandedKeys.value = Array.from(new Set([...defaultExpandedKeys.value, String(groupId)]))
-    }
-  })
+function collectTreeKeys(nodes: any[]): Set<string> {
+  const keys = new Set<string>()
+  const walk = (list: any[]) => {
+    list.forEach((node) => {
+      if (!node) {
+        return
+      }
+      const key = node.key ?? node.id
+      if (key !== undefined && key !== null && String(key) !== "") {
+        keys.add(String(key))
+      }
+      const children = Array.isArray(node.children) ? node.children : []
+      if (children.length) {
+        walk(children)
+      }
+    })
+  }
+  walk(Array.isArray(nodes) ? nodes : [])
+  return keys
 }
 
 watch(
@@ -2249,7 +2396,14 @@ watch(
   (kw) => {
     const keyword = String(kw || "").trim()
     if (!keyword) {
+      if (prevExpandedKeys.value) {
+        expandedKeys.value = prevExpandedKeys.value
+        prevExpandedKeys.value = null
+      }
       return
+    }
+    if (!prevExpandedKeys.value) {
+      prevExpandedKeys.value = expandedKeys.value.map(String)
     }
     const r = filterTreeByKeyword(fullTree.value, keyword)
     const next = new Set(expandedKeys.value.map(String))
@@ -2337,46 +2491,18 @@ function handleSelect(keys: any, e: any) {
   }
 }
 
-function focusNode(node: any) {
-  if (!node?.key) {
+function toggleGroupExpand(node: any) {
+  if (!node?.group || !node?.key) {
     return
   }
-  if (node.group) {
-    const id = String(node.key)
-    const cur = new Set(expandedKeys.value.map(String))
-    if (cur.has(id)) {
-      cur.delete(id)
-    } else {
-      cur.add(id)
-    }
-    expandedKeys.value = Array.from(cur)
-    return
+  const id = String(node.key)
+  const cur = new Set(expandedKeys.value.map(String))
+  if (cur.has(id)) {
+    cur.delete(id)
+  } else {
+    cur.add(id)
   }
-  mapWork.flyToLayer(node.key)
-  mapWork.flashLayer(node.key, { times: 3, intervalMs: 500 })
-}
-
-function toggleNodeShow(node: any) {
-  if (!ensureUnlocked("修改图层")) {
-    return
-  }
-  const layer = mapWork.getLayerById(node?.key)
-  if (!layer) {
-    return
-  }
-  mapWork.updateLayerShowOnly(layer, !layer.show)
-  refreshTree()
-}
-
-function moveNode(node: any, action: "up" | "down") {
-  if (!ensureUnlocked("修改图层")) {
-    return
-  }
-  if (!node?.key) {
-    return
-  }
-  mapWork.moveLayerZIndex(node.key, action)
-  refreshTree()
+  expandedKeys.value = Array.from(cur)
 }
 
 function opcityChange(node: any, value: any) {
@@ -2469,11 +2595,6 @@ function onContextMenuClick(node: any, key: string) {
   }
   if (key === "hide-others") {
     showOnlyUnder(node)
-    return
-  }
-  if (key === "top" || key === "bottom" || key === "up" || key === "down") {
-    mapWork.moveLayerZIndex(node.key, key as any)
-    refreshTree()
     return
   }
   if (key === "rename") {
@@ -3073,9 +3194,7 @@ watch(
       refreshTree()
       loadThematicsCount()
       loadDirectoryLocks()
-      if (isSectionActive("artifacts")) {
-        loadArtifacts()
-      }
+      loadArtifacts()
       if (isSectionActive("versions")) {
         loadRevisions()
       }
@@ -3097,9 +3216,7 @@ watch(
           }
           refreshSessions()
           refreshTree()
-          if (isSectionActive("artifacts")) {
-            loadArtifacts()
-          }
+          loadArtifacts()
           if (isSectionActive("versions")) {
             loadRevisions()
           }
@@ -3114,7 +3231,6 @@ watch(
       }
       return
     }
-    clearStepHistory()
     uninstallSidebarObserver()
     if (mapPollTimer !== null) {
       window.clearInterval(mapPollTimer)
@@ -3173,80 +3289,105 @@ function computeMapSignature(): string {
   return parts.join("|")
 }
 
-function getDropPid(dropNode: any): string | null {
-  if (!dropNode?.key) {
-    return selectedGroupId.value || null
+function layerPidOf(layer: any): string {
+  return String(layer?.pid ?? layer?.options?.pid ?? "")
+}
+
+function nodeIsGroup(node: any, layer: any): boolean {
+  return !!(node?.group || node?.dataRef?.group) || String(layer?.type ?? layer?.options?.type ?? "").toLowerCase().includes("group")
+}
+
+function childUnderParent(nodeId: string, parentId: string): string {
+  let current = String(nodeId || "")
+  const seen = new Set<string>()
+  while (current && !seen.has(current)) {
+    seen.add(current)
+    const layer: any = mapWork.getLayerById(current)
+    const pid = layerPidOf(layer)
+    if (pid === parentId) {
+      return current
+    }
+    if (!pid) {
+      return ""
+    }
+    current = pid
   }
-  if (dropNode.group) {
-    return String(dropNode.key)
+  return ""
+}
+
+function siblingOrder(parentId: string): string[] {
+  const live = collectChildOrder(fullTree.value, parentId)
+  const sessionId = String(selectedGroupId.value || "")
+  const saved = readDirOrderState()[sessionId]?.[parentId]
+  if (!Array.isArray(saved) || !saved.length) {
+    return live
   }
-  const layer: any = mapWork.getLayerById(dropNode.key)
-  const pid = layer?.pid ?? layer?.options?.pid
-  if (pid === null || pid === undefined || pid === "") {
-    return selectedGroupId.value || null
+  const rank = new Map(saved.map((id: string, index: number) => [String(id), index]))
+  return live.slice().sort((a, b) => {
+    const ai = rank.has(a) ? (rank.get(a) as number) : Number.MAX_SAFE_INTEGER
+    const bi = rank.has(b) ? (rank.get(b) as number) : Number.MAX_SAFE_INTEGER
+    return ai - bi
+  })
+}
+
+function saveSiblingOrder(parentId: string, order: string[]) {
+  const sessionId = String(selectedGroupId.value || "")
+  if (!sessionId || !parentId) {
+    return
   }
-  return String(pid)
+  const state = readDirOrderState()
+  const sessionMap = state[sessionId] || {}
+  sessionMap[parentId] = order
+  state[sessionId] = sessionMap
+  writeDirOrderState(state)
+  refreshTree()
 }
 
 function handleDrop(info: any) {
   if (!ensureUnlocked("拖拽调整")) {
     return
   }
-  pushUndoStep()
   const dragId = String(info?.dragNode?.key || "")
   const dropId = String(info?.node?.key || "")
-  if (!dragId || !dropId || dragId === dropId) {
+  if (!dragId || !dropId || dragId === dropId || !selectedGroupId.value) {
     return
   }
 
-  const isDropToGap = !!info?.dropToGap
-  const dropNode = info?.node
-  if (!dropNode) {
+  pushUndoStep()
+  const dragLayer: any = mapWork.getLayerById(dragId)
+  const dropLayer: any = mapWork.getLayerById(dropId)
+  const dragIsGroup = nodeIsGroup(info?.dragNode, dragLayer)
+  const dropIsGroup = nodeIsGroup(info?.node, dropLayer)
+  const dragPid = layerPidOf(dragLayer)
+  const dropPid = layerPidOf(dropLayer)
+  const before = !!info?.dropToGap && Number(info?.dropPosition ?? 0) < 0
+
+  if (!dragIsGroup) {
+    if (dragPid && !dropIsGroup && dragPid === dropPid) {
+      saveSiblingOrder(dragPid, reorderIds(siblingOrder(dragPid), dragId, dropId, before))
+      return
+    }
+    const folderId = dragPid
+    if (!folderId || folderId === dropId) {
+      refreshTree()
+      return
+    }
+    const folderPid = layerPidOf(mapWork.getLayerById(folderId))
+    const targetId = childUnderParent(dropIsGroup ? dropId : dropPid || dropId, folderPid)
+    if (!folderPid || !targetId || targetId === folderId) {
+      refreshTree()
+      return
+    }
+    saveSiblingOrder(folderPid, reorderIds(siblingOrder(folderPid), folderId, targetId, before))
     return
   }
 
-  if (selectedGroupId.value) {
-    const dragLayer: any = mapWork.getLayerById(dragId)
-    const dropLayer: any = mapWork.getLayerById(dropId)
-    const dragPid = String(dragLayer?.pid ?? dragLayer?.options?.pid ?? "")
-    const dropPid = String(dropLayer?.pid ?? dropLayer?.options?.pid ?? "")
-    const dragIsGroup =
-      !!(info?.dragNode?.group || info?.dragNode?.dataRef?.group) ||
-      String(dragLayer?.type ?? dragLayer?.options?.type ?? "").toLowerCase().includes("group")
-    const dropIsGroup =
-      !!(dropNode?.group || dropNode?.dataRef?.group) ||
-      String(dropLayer?.type ?? dropLayer?.options?.type ?? "").toLowerCase().includes("group")
-    if (dragPid && dropPid && dragPid === dropPid) {
-      if (dragIsGroup && dropIsGroup) {
-        const state = readDirOrderState()
-        const sessionId = String(selectedGroupId.value)
-        const sessionMap = state[sessionId] || {}
-        const current =
-          Array.isArray(sessionMap[dragPid]) && sessionMap[dragPid].length
-            ? sessionMap[dragPid].slice()
-            : collectGroupChildOrder(fullTree.value, dragPid)
-        const before = isDropToGap ? Number(info?.dropPosition ?? 0) < 0 : false
-        const nextOrder = reorderIds(current, dragId, dropId, before)
-        sessionMap[dragPid] = nextOrder
-        state[sessionId] = sessionMap
-        writeDirOrderState(state)
-        refreshTree()
-        return
-      }
-    }
+  const targetId = childUnderParent(dropId, dragPid)
+  if (!dragPid || !targetId || targetId === dragId) {
+    refreshTree()
+    return
   }
-
-  if (isDropToGap) {
-    const ok = mapWork.exchangeLayerZIndex(dragId, dropId)
-    if (!ok) {
-      const pid = getDropPid(dropNode)
-      mapWork.setLayerPid(dragId, pid)
-    }
-  } else {
-    const pid = getDropPid(dropNode)
-    mapWork.setLayerPid(dragId, pid)
-  }
-  refreshTree()
+  saveSiblingOrder(dragPid, reorderIds(siblingOrder(dragPid), dragId, targetId, before))
 }
 
 const artifactsLoading = ref(false)
@@ -3716,6 +3857,7 @@ function exportThematicResult() {
 
 type RevisionListItem = { revisionId: string; title: string; desc: string }
 const revisionsLoading = ref(false)
+const revisionsError = ref("")
 const revisions = ref<RevisionListItem[]>([])
 
 const revisionOptions = computed(() => {
@@ -3779,12 +3921,23 @@ async function loadRevisions() {
   const datasetId = currentDataset.value?.datasetId
   if (!datasetId) {
     revisions.value = []
+    revisionsError.value = ""
     return
   }
   revisionsLoading.value = true
   try {
-    const res = await getItems(datasetId, { limit: 50 })
-    const items = res.success && Array.isArray(res.data) ? res.data : []
+    const res = await listDatasetRevisions(datasetId, { limit: 50 })
+    if (!res.success) {
+      revisions.value = []
+      const message = res.message || "获取版本列表失败"
+      if (revisionsError.value !== message) {
+        $message(message)
+      }
+      revisionsError.value = message
+      return
+    }
+    revisionsError.value = ""
+    const items = Array.isArray(res.data) ? res.data : []
     revisions.value = items.map((it: any) => {
       const rid = String(it.id || "")
       const title = String(it?.properties?.title || it?.properties?.name || rid || "版本")
@@ -3792,8 +3945,13 @@ async function loadRevisions() {
       const desc = dt ? formatDateTime(dt) : ""
       return { revisionId: rid, title, desc }
     })
-  } catch {
+  } catch (error: any) {
     revisions.value = []
+    const message = error?.message || "获取版本列表失败"
+    if (revisionsError.value !== message) {
+      $message(message)
+    }
+    revisionsError.value = message
   } finally {
     revisionsLoading.value = false
   }
@@ -3932,9 +4090,7 @@ watch(
     refreshSessions()
     refreshTree()
     loadThematicsCount()
-    if (isSectionActive("artifacts")) {
-      loadArtifacts()
-    }
+    loadArtifacts()
     if (isSectionActive("versions")) {
       loadRevisions()
     }
@@ -3960,7 +4116,7 @@ watch(
   padding: 8px;
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
@@ -4061,7 +4217,16 @@ watch(
   gap: 4px;
   flex: 1 1 auto;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
+}
+
+.dataset-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  flex-shrink: 0;
+  padding: 0 6px;
 }
 
 .tree-row {
@@ -4239,13 +4404,25 @@ watch(
   color: inherit;
 }
 
-.layers-panel :deep(.ant-tree-checkbox-inner) {
-  border-color: color-mix(in srgb, var(--text-primary) 40%, transparent);
+.layer-outline :deep(.ant-tree-checkbox-checked) {
+  background: transparent !important;
 }
 
-.layers-panel :deep(.ant-tree-checkbox-checked .ant-tree-checkbox-inner) {
-  background-color: var(--primary);
-  border-color: var(--primary);
+.layer-outline :deep(.ant-tree-checkbox-inner) {
+  width: 16px !important;
+  height: 16px !important;
+  flex: 0 0 16px !important;
+  background: #fff !important;
+}
+
+.layer-outline :deep(.ant-tree-checkbox-checked .ant-tree-checkbox-inner) {
+  background: var(--mars-primary-color, var(--primary)) !important;
+  border-color: var(--mars-primary-color, var(--primary)) !important;
+}
+
+.layer-outline :deep(.ant-tree-checkbox-checked .ant-tree-checkbox-inner::after) {
+  border-color: #fff !important;
+  opacity: 1 !important;
 }
 
 .layers-panel :deep(.ant-input) {
@@ -4268,26 +4445,160 @@ watch(
   color: inherit;
 }
 
-.layers-tree {
-  flex: 1 1 auto;
-  min-height: 80px;
+.layer-outline {
+  flex: 1 1 0;
+  height: 0;
+  min-height: 0;
   overflow: auto;
   padding: 6px 0 2px;
   overscroll-behavior: contain;
 }
 
+.layer-outline :deep(.ant-tree),
+.layer-outline :deep(.ant-tree-list),
+.layer-outline :deep(.ant-tree-list-holder) {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  background: transparent;
+}
+
+.layer-outline :deep(.ant-tree-treenode) {
+  display: flex !important;
+  flex-flow: row wrap !important;
+  align-items: flex-start !important;
+  width: 100%;
+  min-height: 30px;
+  padding: 0 !important;
+  border-radius: 2px;
+}
+
+.layer-outline :deep(.ant-tree-indent) {
+  display: inline-flex !important;
+  align-self: stretch !important;
+  flex: none !important;
+}
+
+.layer-outline :deep(.ant-tree-indent-unit) {
+  position: relative;
+  width: 16px !important;
+  align-self: stretch;
+}
+
+.layer-outline :deep(.ant-tree-indent-unit::before) {
+  content: "" !important;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 0;
+  border-left: 1px solid #e5e6eb !important;
+  transform: translateX(-0.5px);
+}
+
+.layer-outline :deep(.ant-tree-switcher),
+.layer-outline :deep(.ant-tree-checkbox) {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  align-self: flex-start !important;
+  flex: none !important;
+  height: 30px !important;
+  margin: 0 !important;
+  margin-block: 0 !important;
+  top: 0 !important;
+  line-height: 30px !important;
+}
+
+.layer-outline :deep(.ant-tree-switcher) {
+  width: 16px !important;
+  flex-basis: 16px !important;
+}
+
+.layer-outline :deep(.ant-tree-checkbox) {
+  width: 16px !important;
+  margin-inline-end: 4px !important;
+}
+
+.layer-outline :deep(.ant-tree-checkbox-inner) {
+  width: 16px !important;
+  height: 16px !important;
+}
+
+.layer-outline :deep(.ant-tree-iconEle) {
+  display: none !important;
+}
+
+.layer-outline :deep(.ant-dropdown-trigger) {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.layer-outline :deep(.ant-tree-node-content-wrapper),
+.layer-outline :deep(.ant-tree-title) {
+  display: contents !important;
+  min-width: 0;
+  background: transparent !important;
+}
+
+.layer-outline :deep(.ant-tree-treenode-selected) {
+  background: #e8f3ff !important;
+}
+
+.layer-outline :deep(.ant-tree-treenode-selected) .node-name,
+.layer-outline :deep(.ant-tree-treenode-selected) .node-type-icon {
+  color: var(--primary, #1677ff) !important;
+}
+
+.layer-outline :deep(.ant-tree-treenode-selected) .node-type-icon svg,
+.layer-outline :deep(.ant-tree-treenode-selected) .node-type-icon path {
+  fill: var(--primary, #1677ff) !important;
+}
+
+.layer-outline :deep(.ant-tree-treenode:hover) {
+  background: color-mix(in srgb, #4e5969 6%, transparent);
+}
+
+.layer-outline :deep(.ant-tree-treenode-selected:hover) {
+  background: #e8f3ff !important;
+}
+
+.tree-caret {
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid #4e5969;
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+
+.tree-caret.is-open {
+  transform: none;
+}
+
 .layers-toolbar {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   flex-shrink: 0;
-  align-items: center;
   gap: 8px;
   padding: 6px 0 2px;
 }
 
+.layers-toolbar-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.layers-toolbar-row :deep(.ant-btn) {
+  width: 100%;
+}
+
 .layers-search {
-  flex: 1;
-  min-width: 120px;
+  width: 100%;
 }
 
 .layers-lock {
@@ -4310,12 +4621,48 @@ watch(
   font-size: 12px;
 }
 
-.node-title {
+.node-block {
   display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.node-type-icon {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-size: 14px;
-  line-height: 32px;
+  justify-content: center;
+}
+
+.node-main {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  height: 30px;
+  overflow: hidden;
+}
+
+.node-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 22px;
+  height: 22px;
+  color: #4e5969;
 }
 
 .node-highlight {
@@ -4325,9 +4672,9 @@ watch(
 }
 
 .node-tags {
-  display: inline-flex;
+  display: flex;
   gap: 4px;
-  margin-left: 4px;
+  margin: 0 0 4px;
   flex-wrap: wrap;
 }
 
@@ -4335,26 +4682,20 @@ watch(
   margin-inline-end: 0;
 }
 
-.node-hover-actions {
-  margin-left: auto;
-  display: none;
-  align-items: center;
-  gap: 4px;
-}
-
-.node-title:hover .node-hover-actions {
-  display: inline-flex;
-}
-
-.node-hover-action {
-  padding: 0 4px;
-  height: 24px;
-}
-
 .tree-slider {
-  margin-left: 8px;
-  display: inline-block;
-  width: 120px;
+  display: block;
+  flex: 0 0 100%;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 12px 6px 8px;
+}
+
+.tree-slider :deep(.mars-slider),
+.tree-slider :deep(.ant-slider) {
+  width: 100%;
+  margin: 0;
 }
 
 .thematics-panel {
@@ -4668,8 +5009,12 @@ watch(
 
 .recent {
   flex-shrink: 0;
-  max-height: 180px;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.recent-list {
   overscroll-behavior: contain;
 }
 

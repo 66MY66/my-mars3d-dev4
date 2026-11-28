@@ -1,5 +1,6 @@
 import * as mars3d from "mars3d"
 import type { Manifest } from "../dataset-repository/types/eoapi-types"
+import { buildScopedGroupId } from "../dataset-repository/services/layer-id"
 import { restoreWorkspace } from "../dataset-repository/workspace"
 
 export type DatasetSessionSource = "repository" | "my-repository" | "unknown"
@@ -85,50 +86,65 @@ export function getAllLayers(): any[] {
   }
 }
 
-export function listDatasetSessions(datasetId: string): DatasetSession[] {
-  if (!datasetId) {
-    return []
+const IMPORT_GROUP_RE = /^(eoapi|myrepo|stac)_group_(.+)_(\d+)$/
+
+function scopeOfGroup(groupId: string): string {
+  if (groupId.startsWith("myrepo_group_")) {
+    return "myrepo"
   }
-  const layers = getAllLayers()
+  if (groupId.startsWith("stac_group_")) {
+    return "stac"
+  }
+  return "eoapi"
+}
+
+export function listImportedSessions(): DatasetSession[] {
   const sessions: DatasetSession[] = []
-
-  const eoPrefix = `eoapi_group_${datasetId}_`
-  const myPrefix = `myrepo_group_${datasetId}_`
-
-  for (const layer of layers) {
+  for (const layer of getAllLayers()) {
     const id = layer?.id
     if (typeof id !== "string") {
       continue
     }
-    if (id.startsWith(eoPrefix)) {
-      const openedAt = Number(id.slice(eoPrefix.length))
-      if (Number.isFinite(openedAt) && openedAt > 0) {
-        sessions.push({
-          datasetId,
-          groupId: id,
-          openedAt,
-          source: "repository",
-          groupName: typeof layer?.name === "string" ? layer.name : undefined
-        })
-      }
+    const matched = id.match(IMPORT_GROUP_RE)
+    if (!matched) {
       continue
     }
-    if (id.startsWith(myPrefix)) {
-      const openedAt = Number(id.slice(myPrefix.length))
-      if (Number.isFinite(openedAt) && openedAt > 0) {
-        sessions.push({
-          datasetId,
-          groupId: id,
-          openedAt,
-          source: "my-repository",
-          groupName: typeof layer?.name === "string" ? layer.name : undefined
-        })
-      }
+    const openedAt = Number(matched[3])
+    if (!Number.isFinite(openedAt) || openedAt <= 0) {
+      continue
     }
+    const persisted = getPersistedSession(id)
+    const scope = matched[1]
+    const source: DatasetSessionSource = persisted?.source || (scope === "myrepo" ? "my-repository" : "repository")
+    const layerName = typeof layer?.name === "string" ? layer.name : ""
+    sessions.push({
+      datasetId: String(persisted?.datasetId || matched[2]),
+      groupId: id,
+      openedAt: Number(persisted?.openedAt) || openedAt,
+      source,
+      groupName: layerName || persisted?.groupName
+    })
   }
-
   sessions.sort((a, b) => b.openedAt - a.openedAt)
-  return sessions.slice(0, 20)
+  return sessions
+}
+
+export function sessionMatchesDataset(session: DatasetSession, datasetId: string): boolean {
+  const wanted = String(datasetId || "")
+  if (!wanted || !session?.groupId) {
+    return false
+  }
+  if (session.datasetId === wanted) {
+    return true
+  }
+  return session.groupId === buildScopedGroupId(scopeOfGroup(session.groupId), wanted, session.openedAt)
+}
+
+export function listDatasetSessions(datasetId: string): DatasetSession[] {
+  if (!datasetId) {
+    return []
+  }
+  return listImportedSessions().filter((session) => sessionMatchesDataset(session, datasetId)).slice(0, 20)
 }
 
 export function isLayerUnderGroup(layer: any, groupId: string): boolean {

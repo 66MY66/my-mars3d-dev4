@@ -67,6 +67,7 @@ vi.mock("@/shell/permission", () => ({
 
 vi.mock("@/shell/currentDataset", () => ({
   getCurrentDataset: () => currentDatasetValue,
+  setCurrentDataset: vi.fn(),
   onCurrentDatasetChange: (cb: (value: any) => void) => {
     datasetListeners.add(cb)
     return () => datasetListeners.delete(cb)
@@ -100,8 +101,19 @@ vi.mock("./map", () => {
         manifest: { manifestVersion: "1.0", layers: [], drawFeatures: [] }
       }
     ]),
+    listImportedSessions: vi.fn(() => [
+      {
+        datasetId: "ds-ct",
+        groupId: "eoapi_group_ds-ct_1000",
+        openedAt: 1000,
+        source: "repository",
+        groupName: "本次导入"
+      }
+    ]),
+    sessionMatchesDataset: vi.fn((session: { datasetId?: string }, datasetId: string) => session?.datasetId === datasetId),
     restorePersistedSessions,
     persistSession: vi.fn(),
+    getPersistedSession: vi.fn(() => null),
     removePersistedSession: vi.fn(),
     getLayrsTree: vi.fn(() => ({
       tree: [
@@ -168,6 +180,7 @@ vi.mock("../dataset-repository/services/eoapi-artifacts", () => ({
 
 vi.mock("../dataset-repository/services/eoapi-datasets", () => ({
   getItems: vi.fn(),
+  listDatasetRevisions: vi.fn(),
   getLatestDatasetManifest: vi.fn(),
   getRevisionManifest: vi.fn(),
   forkDataset: vi.fn(),
