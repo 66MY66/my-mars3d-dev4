@@ -232,7 +232,8 @@
           <div class="row">
             <div class="k">任务</div>
             <div class="v">
-              <span v-if="identify.jobId">#{{ identify.jobId }}</span>
+              <span v-if="identify.jobId === IDENTIFY_UI_PREVIEW_JOB_ID">界面预览</span>
+              <span v-else-if="identify.jobId">#{{ identify.jobId }}</span>
               <span v-else>—</span>
             </div>
           </div>
@@ -324,17 +325,19 @@
           </div>
         </div>
 
-        <div class="stats-actions identify-primary-actions">
-          <button class="btn" type="button" :disabled="identify.running" @click="startIdentifyFromPanel">开始识别</button>
-          <button class="btn" type="button" @click="clearIdentifyResult">清理</button>
-        </div>
+        <div v-if="identify.jobId === IDENTIFY_UI_PREVIEW_JOB_ID" class="identify-preview-note">界面预览数据，不接入正式结果</div>
 
-        <div class="stats-actions identify-export-actions">
-          <button class="btn" type="button" @click="exportIdentifyGeoJSON">导出GeoJSON</button>
-          <button class="btn" type="button" @click="exportIdentifyCSV">导出CSV</button>
+        <div class="identify-actions">
+          <div class="identify-actions-row">
+            <button class="btn" type="button" :disabled="identify.running" @click="startIdentifyFromPanel">开始识别</button>
+            <button class="btn" type="button" @click="clearIdentifyResult">清理</button>
+          </div>
+          <div class="identify-actions-row">
+            <button class="btn" type="button" @click="exportIdentifyGeoJSON">导出GeoJSON</button>
+            <button class="btn" type="button" @click="exportIdentifyCSV">导出CSV</button>
+          </div>
+          <button class="btn identify-stats-btn" type="button" @click="openStatsPanel">综合统计面板</button>
         </div>
-
-        <button class="btn identify-stats-btn" type="button" @click="openStatsPanel">综合统计面板</button>
 
         <div class="stats-grid">
           <div class="row identify-top-row">
@@ -360,7 +363,7 @@
           <div v-else class="k">暂无结果</div>
         </div>
 
-        <div v-if="identifySelectedItem" class="detail-card">
+        <div v-if="identifySelectedItem && !precursorDetailVisible" class="detail-card">
           <div class="d-title">{{ identifySelectedItem.title }}</div>
           <div class="d-meta">{{ identifySelectedItem.meta }}</div>
           <div v-if="identifySelectedItem.desc" class="d-desc">{{ identifySelectedItem.desc }}</div>
@@ -371,6 +374,21 @@
       </div>
 
       <div class="resize-handle" @mousedown="(e) => startPanelResize(e, 'identify')"></div>
+    </div>
+
+    <div v-if="precursorDetailVisible" class="identify-detail-panel" :style="identifyDetailPanelStyle">
+      <div class="stats-head">
+        <div class="stats-title">前兆监测点详情</div>
+        <button class="stats-close" type="button" aria-label="关闭详情" @click="closePrecursorDetail">×</button>
+      </div>
+      <div class="identify-panel-body">
+        <div class="identify-detail-list">
+          <div v-for="row in precursorDetailRows" :key="row.label" class="identify-detail-row">
+            <div class="k">{{ row.label }}</div>
+            <div class="v">{{ row.value }}</div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -432,6 +450,7 @@ import {
   type QuickIdentifyCategory,
   type QuickIdentifyJobStatus
 } from "@/api/quickIdentify"
+import { buildIdentifyUiPreview, IDENTIFY_UI_PREVIEW_ENABLED, IDENTIFY_UI_PREVIEW_JOB_ID } from "./identify-ui-preview"
 
 import { useWidget } from "@mars/common/store/widget"
 import { hasPermission } from "@/shell/permission"
@@ -1141,6 +1160,35 @@ const identifySelectedItem = computed(() => {
   }
   return identify.items.find((x) => x.idx === identify.selectedIdx) || null
 })
+const precursorDetailDismissed = ref(false)
+const precursorDetailVisible = computed(() => {
+  return identifyVisible.value && identify.category === "precursor" && identifySelectedItem.value != null && !precursorDetailDismissed.value
+})
+const precursorDetailRows = computed(() => {
+  const item = identifySelectedItem.value
+  if (!item) {
+    return []
+  }
+  const props = item.props || {}
+  return [
+    { label: "前兆监测点名称", value: item.title || "—" },
+    { label: "异常时间", value: formatIdentifyText(props.time) },
+    { label: "异常持续时间", value: formatIdentifyDuration(props.duration ?? props.durationHours ?? props.anomalyDuration) },
+    { label: "异常区域经度", value: Number.isFinite(item.lng) ? `${item.lng.toFixed(6)}°` : "—" },
+    { label: "异常区域纬度", value: Number.isFinite(item.lat) ? `${item.lat.toFixed(6)}°` : "—" },
+    { label: "异常区域面积", value: formatIdentifyArea(props.areaM2 ?? props.anomalyAreaM2) },
+    { label: "异常温差", value: formatIdentifyTempDiff(props.tempDiff ?? props.temperatureDiff ?? props.tempDiffC) }
+  ]
+})
+const IDENTIFY_DETAIL_WIDTH = 300
+const IDENTIFY_DETAIL_GAP = 8
+const identifyDetailFrame = reactive({ left: 0, top: 0, height: 0 })
+const identifyDetailPanelStyle = computed(() => ({
+  left: `${identifyDetailFrame.left}px`,
+  top: `${identifyDetailFrame.top}px`,
+  height: `${identifyDetailFrame.height}px`,
+  width: `${IDENTIFY_DETAIL_WIDTH}px`
+}))
 const statsPanelStyle = computed(() => {
   const s: any = {}
   const { width, height } = getStatsPanelSize(viewport.w, viewport.h)
@@ -1219,6 +1267,68 @@ function clampIdentifyPanelToMap() {
   identifyPanelPos.left = Math.max(0, Math.min(Math.max(0, bounds.width - clampedWidth - 12), currentLeft))
   identifyPanelPos.top = Math.max(0, Math.min(Math.max(0, bounds.height - clampedHeight - 12), currentTop))
 }
+
+function formatIdentifyText(value: unknown) {
+  if (value == null || value === "") {
+    return "—"
+  }
+  return String(value)
+}
+
+function formatIdentifyDuration(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return `${value}小时`
+  }
+  return formatIdentifyText(value)
+}
+
+function formatIdentifyArea(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return formatArea(value, unitPrefs.area)
+  }
+  return formatIdentifyText(value)
+}
+
+function formatIdentifyTempDiff(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    const sign = value > 0 ? "+" : ""
+    return `${sign}${value.toFixed(1)}℃`
+  }
+  return formatIdentifyText(value)
+}
+
+function syncIdentifyDetailFrame() {
+  const el = identifyPanelEl.value
+  if (!el || !precursorDetailVisible.value) {
+    return
+  }
+  const bounds = getPanelBounds("identify")
+  const rect = el.getBoundingClientRect()
+  const panelLeft = rect.left - bounds.left
+  let left = panelLeft - IDENTIFY_DETAIL_WIDTH - IDENTIFY_DETAIL_GAP
+  const rightSide = panelLeft + rect.width + IDENTIFY_DETAIL_GAP
+  if (left < 8 && rightSide + IDENTIFY_DETAIL_WIDTH <= bounds.width - 8) {
+    left = rightSide
+  }
+  if (left < 8) {
+    left = 8
+  }
+  identifyDetailFrame.left = Math.round(left)
+  identifyDetailFrame.top = Math.round(rect.top - bounds.top)
+  identifyDetailFrame.height = Math.round(rect.height)
+}
+
+watch(
+  () => [
+    precursorDetailVisible.value,
+    identifyPanelPos.left,
+    identifyPanelPos.top,
+    identifyPanelPos.width,
+    identifyPanelPos.height
+  ],
+  () => syncIdentifyDetailFrame(),
+  { flush: "post" }
+)
 
 function startPanelDrag(e: MouseEvent, which: "stats" | "identify") {
   if ((e.target as HTMLElement)?.closest?.("button,select,input,textarea")) {
@@ -2756,6 +2866,7 @@ const handleViewportResize = throttle(() => {
     if (statsVisible.value) {
       clampStatsPanelToMap()
     }
+    syncIdentifyDetailFrame()
     resizeAllCharts()
   })
 }, 120)
@@ -3107,8 +3218,13 @@ function openIdentifyPanel() {
   })
 }
 
+function closePrecursorDetail() {
+  precursorDetailDismissed.value = true
+}
+
 function selectIdentifyItem(idx: number) {
-  const action = getIdentifyFocusAction(identify.category, identify.selectedIdx, idx)
+  const reopenClosedDetail = identify.category === "precursor" && precursorDetailDismissed.value
+  const action = reopenClosedDetail ? "focus" : getIdentifyFocusAction(identify.category, identify.selectedIdx, idx)
   if (action === "restore") {
     restorePrecursorOverview()
     return
@@ -3120,6 +3236,7 @@ function selectIdentifyItem(idx: number) {
       precursorOverviewCamera = null
     }
   }
+  precursorDetailDismissed.value = false
   identify.selectedIdx = idx
   flyToIdentifyItem(idx)
 }
@@ -3137,7 +3254,24 @@ function restorePrecursorOverview() {
   }
   identifySelectedGraphic = null
   identify.selectedIdx = null
+  precursorDetailDismissed.value = false
   precursorOverviewCamera = null
+}
+
+function identifyFlyDuration(target: any) {
+  const speed = 1.5
+  const fallback = 3 / speed
+  const camera = map?.camera
+  if (!camera?.position || !target) {
+    return fallback
+  }
+  const distance = mars3d.Cesium.Cartesian3.distance(camera.position, target)
+  if (!Number.isFinite(distance)) {
+    return fallback
+  }
+  // Cesium caps an unspecified flight at 3 seconds: min(ceil(distance / 1e6) + 2, 3).
+  const automatic = Math.min(Math.ceil(distance / 1_000_000) + 2, 3)
+  return automatic / speed
 }
 
 function flyToIdentifyItem(idx: number) {
@@ -3146,6 +3280,11 @@ function flyToIdentifyItem(idx: number) {
     return
   }
   const graphic = identifyGraphicByIdx.get(idx)
+  let cartesian: any = null
+  try {
+    cartesian = mars3d.Cesium.Cartesian3.fromDegrees(it.lng, it.lat, 0)
+  } catch {}
+  const duration = identifyFlyDuration(cartesian)
   if (graphic) {
     try {
       if (identifySelectedGraphic && typeof identifySelectedGraphic.closeHighlight === "function") {
@@ -3153,13 +3292,12 @@ function flyToIdentifyItem(idx: number) {
       }
     } catch {}
     identifySelectedGraphic = graphic
-    graphic.flyTo?.({ radius: 1800 })
+    graphic.flyTo?.({ radius: 1800, duration })
     graphic.openHighlight?.()
     return
   }
   try {
-    const cartesian = mars3d.Cesium.Cartesian3.fromDegrees(it.lng, it.lat, 0)
-    map.flyToPoint(cartesian, { radius: 1800, maximumHeight: map.camera.positionCartographic.height })
+    map.flyToPoint(cartesian, { radius: 1800, duration, maximumHeight: map.camera.positionCartographic.height })
   } catch {}
 }
 
@@ -3184,7 +3322,7 @@ function clearIdentifyResult() {
       window.clearTimeout(identifyPollTimer)
       identifyPollTimer = null
     }
-    if (identify.jobId) {
+    if (identify.jobId && identify.jobId !== IDENTIFY_UI_PREVIEW_JOB_ID) {
       cancelQuickIdentifyJob(identify.jobId).catch(() => {})
     }
     identify.running = false
@@ -3195,6 +3333,7 @@ function clearIdentifyResult() {
     identify.error = null
     identify.items = []
     identify.selectedIdx = null
+    precursorDetailDismissed.value = false
     precursorOverviewCamera = null
     identify.geojson = null
 
@@ -3211,6 +3350,153 @@ function clearIdentifyResult() {
   } catch {}
 }
 
+function paintIdentifyResult(resultGeojson: any) {
+  if (!map) {
+    return
+  }
+  try {
+    identify.geojson = resultGeojson
+    const features = resultGeojson?.features ?? []
+    const items: Array<{
+      idx: number
+      title: string
+      meta: string
+      lng: number
+      lat: number
+      level: number
+      desc?: string
+      mediaUrls?: string[]
+      props?: any
+    }> = []
+    const heatPositions: Array<{ lng: number; lat: number; value: number }> = []
+
+    if (identifyHeatLayer) {
+      map.removeLayer(identifyHeatLayer, true)
+      identifyHeatLayer = null
+    }
+    if (identifyGraphicLayer) {
+      map.removeLayer(identifyGraphicLayer, true)
+      identifyGraphicLayer = null
+    }
+    identifyGraphicLayer = new mars3d.layer.GraphicLayer({ name: "异常识别结果" })
+    map.addLayer(identifyGraphicLayer)
+    identifyGraphicByIdx = new Map<number, any>()
+    identifyGraphicLayer.on(mars3d.EventType.click, (evt: any) => {
+      const idx = Number(evt?.graphic?.attr?.idx)
+      if (Number.isFinite(idx)) {
+        selectIdentifyItem(idx)
+      }
+    })
+
+    features.forEach((f: any, i: number) => {
+      const geom = f?.geometry
+      if (geom?.type !== "Point" || !Array.isArray(geom.coordinates)) {
+        return
+      }
+      const [lng, lat] = geom.coordinates
+      if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
+        return
+      }
+      const props = f?.properties || {}
+      const idx = Number(props.idx ?? i + 1)
+      const kind = String(props.kind ?? identify.category)
+      const level = Number(props.level ?? 1)
+      const title = String(props.title ?? props.name ?? props.typeText ?? `异常点${idx}`)
+      const time = props.time ? String(props.time) : ""
+      const subType = String(props.macroType ?? props.subType ?? "")
+      const meta = [kind, subType, time].filter(Boolean).join(" · ")
+
+      items.push({
+        idx,
+        title,
+        meta,
+        lng,
+        lat,
+        level,
+        desc: props.desc ? String(props.desc) : undefined,
+        mediaUrls: Array.isArray(props.mediaUrls) ? props.mediaUrls : undefined,
+        props
+      })
+
+      let color = "#ff4d4f"
+      if (identify.category === "macro") {
+        color = "#ffea00"
+        if (level >= 3) {
+          color = "#d50000"
+        } else if (level === 2) {
+          color = "#ff6d00"
+        }
+      }
+      const graphic = new mars3d.graphic.PointEntity({
+        position: [lng, lat],
+        style: {
+          color,
+          pixelSize: 9,
+          outline: true,
+          outlineColor: "#ffffff",
+          outlineWidth: 2,
+          clampToGround: true,
+          highlight: { outlineColor: "#ff4d4f", outlineWidth: 4 }
+        },
+        attr: { idx, ...props }
+      })
+      identifyGraphicLayer.addGraphic(graphic)
+      identifyGraphicByIdx.set(idx, graphic)
+
+      if (identify.category !== "macro") {
+        const value = Number(props.value ?? props.temp ?? props.anomaly ?? level)
+        if (Number.isFinite(value)) {
+          heatPositions.push({ lng, lat, value })
+        }
+      }
+    })
+
+    identify.items = items
+    // Precursor points remain in the user's overview until explicitly clicked.
+    // Other identification categories retain their existing first-result focus.
+    const defaultIdentifyIdx = items.length ? items[0].idx : null
+    identify.selectedIdx = identify.category === "precursor" ? null : defaultIdentifyIdx
+    if (identify.selectedIdx) {
+      flyToIdentifyItem(identify.selectedIdx)
+    }
+
+    if (identify.category !== "macro" && heatPositions.length > 0) {
+      identifyHeatLayer = new mars3d.layer.HeatLayer({
+        name: "异常热力图",
+        positions: heatPositions,
+        valueColumn: "value",
+        heatStyle: {
+          maxOpacity: 0.85,
+          minOpacity: 0.15,
+          blur: 0.85,
+          radius: 28,
+          gradient: { 0.3: "#1b5e20", 0.55: "#66bb6a", 0.75: "#ffea00", 0.9: "#ff6d00", 1.0: "#d50000" }
+        },
+        style: { type: "image", opacity: 0.85, clampToGround: true }
+      })
+      map.addLayer(identifyHeatLayer)
+    }
+  } catch {}
+}
+
+function showIdentifyUiPreview(ring: RingLonLat) {
+  const preview = buildIdentifyUiPreview({
+    ring,
+    category: identify.category,
+    macroType: identify.macroType,
+    precursorType: identify.precursorType,
+    deformationMethod: identify.deformationMethod
+  })
+  identify.running = false
+  identify.jobId = IDENTIFY_UI_PREVIEW_JOB_ID
+  identify.status = "done"
+  identify.progress = 1
+  identify.summary = preview.summary
+  identify.error = null
+  identify.geojson = preview.resultGeojson
+  paintIdentifyResult(preview.resultGeojson)
+}
+
 async function pollIdentify(jobId: string) {
   if (!identify.running) {
     return
@@ -3225,129 +3511,7 @@ async function pollIdentify(jobId: string) {
     if (st.status === "done") {
       identify.running = false
       if (st.resultGeojson && map) {
-        try {
-          identify.geojson = st.resultGeojson
-          const features = st.resultGeojson?.features ?? []
-          const items: Array<{
-            idx: number
-            title: string
-            meta: string
-            lng: number
-            lat: number
-            level: number
-            desc?: string
-            mediaUrls?: string[]
-            props?: any
-          }> = []
-          const heatPositions: Array<{ lng: number; lat: number; value: number }> = []
-
-          if (identifyHeatLayer) {
-            map.removeLayer(identifyHeatLayer, true)
-            identifyHeatLayer = null
-          }
-          if (identifyGraphicLayer) {
-            map.removeLayer(identifyGraphicLayer, true)
-            identifyGraphicLayer = null
-          }
-          identifyGraphicLayer = new mars3d.layer.GraphicLayer({ name: "异常识别结果" })
-          map.addLayer(identifyGraphicLayer)
-          identifyGraphicByIdx = new Map<number, any>()
-          identifyGraphicLayer.on(mars3d.EventType.click, (evt: any) => {
-            const idx = Number(evt?.graphic?.attr?.idx)
-            if (Number.isFinite(idx)) {
-              selectIdentifyItem(idx)
-            }
-          })
-
-          features.forEach((f: any, i: number) => {
-            const geom = f?.geometry
-            if (geom?.type !== "Point" || !Array.isArray(geom.coordinates)) {
-              return
-            }
-            const [lng, lat] = geom.coordinates
-            if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
-              return
-            }
-            const props = f?.properties || {}
-            const idx = Number(props.idx ?? i + 1)
-            const kind = String(props.kind ?? identify.category)
-            const level = Number(props.level ?? 1)
-            const title = String(props.title ?? props.name ?? props.typeText ?? `异常点${idx}`)
-            const time = props.time ? String(props.time) : ""
-            const subType = String(props.macroType ?? props.subType ?? "")
-            const meta = [kind, subType, time].filter(Boolean).join(" · ")
-
-            items.push({
-              idx,
-              title,
-              meta,
-              lng,
-              lat,
-              level,
-              desc: props.desc ? String(props.desc) : undefined,
-              mediaUrls: Array.isArray(props.mediaUrls) ? props.mediaUrls : undefined,
-              props
-            })
-
-            let color = "#ff4d4f"
-            if (identify.category === "macro") {
-              color = "#ffea00"
-              if (level >= 3) {
-                color = "#d50000"
-              } else if (level === 2) {
-                color = "#ff6d00"
-              }
-            }
-            const graphic = new mars3d.graphic.PointEntity({
-              position: [lng, lat],
-              style: {
-                color,
-                pixelSize: 9,
-                outline: true,
-                outlineColor: "#ffffff",
-                outlineWidth: 2,
-                clampToGround: true,
-                highlight: { outlineColor: "#ff4d4f", outlineWidth: 4 }
-              },
-              attr: { idx, ...props }
-            })
-            identifyGraphicLayer.addGraphic(graphic)
-            identifyGraphicByIdx.set(idx, graphic)
-
-            if (identify.category !== "macro") {
-              const value = Number(props.value ?? props.temp ?? props.anomaly ?? level)
-              if (Number.isFinite(value)) {
-                heatPositions.push({ lng, lat, value })
-              }
-            }
-          })
-
-          identify.items = items
-          // Precursor points remain in the user's overview until explicitly clicked.
-          // Other identification categories retain their existing first-result focus.
-          const defaultIdentifyIdx = items.length ? items[0].idx : null
-          identify.selectedIdx = identify.category === "precursor" ? null : defaultIdentifyIdx
-          if (identify.selectedIdx) {
-            flyToIdentifyItem(identify.selectedIdx)
-          }
-
-          if (identify.category !== "macro" && heatPositions.length > 0) {
-            identifyHeatLayer = new mars3d.layer.HeatLayer({
-              name: "异常热力图",
-              positions: heatPositions,
-              valueColumn: "value",
-              heatStyle: {
-                maxOpacity: 0.85,
-                minOpacity: 0.15,
-                blur: 0.85,
-                radius: 28,
-                gradient: { 0.3: "#1b5e20", 0.55: "#66bb6a", 0.75: "#ffea00", 0.9: "#ff6d00", 1.0: "#d50000" }
-              },
-              style: { type: "image", opacity: 0.85, clampToGround: true }
-            })
-            map.addLayer(identifyHeatLayer)
-          }
-        } catch {}
+        paintIdentifyResult(st.resultGeojson)
       }
       return
     }
@@ -3369,6 +3533,16 @@ async function startQuickIdentify(ring: RingLonLat) {
   identify.progress = 0
   identify.error = null
   identifyVisible.value = true
+
+  // Temporary layout preview. Delete this branch with identify-ui-preview.ts to resume the live job API.
+  if (IDENTIFY_UI_PREVIEW_ENABLED) {
+    showIdentifyUiPreview(ring)
+    nextTick(() => {
+      clampIdentifyPanelToMap()
+      syncIdentifyDetailFrame()
+    })
+    return
+  }
 
   try {
     const timeRange =
@@ -5025,7 +5199,8 @@ onUnmounted(() => {
   font-weight: var(--popup-title-font-weight, 600);
 }
 
-.identify-panel .stats-close {
+.identify-panel .stats-close,
+.identify-detail-panel .stats-close {
   width: 32px;
   height: 32px;
   border-radius: var(--popup-item-radius, 8px);
@@ -5035,7 +5210,9 @@ onUnmounted(() => {
 }
 
 .identify-panel .stats-close:hover,
-.identify-panel .stats-close:focus-visible {
+.identify-panel .stats-close:focus-visible,
+.identify-detail-panel .stats-close:hover,
+.identify-detail-panel .stats-close:focus-visible {
   color: var(--text-primary);
   background: rgba(45, 140, 240, 0.14);
   outline: none;
@@ -5253,6 +5430,80 @@ onUnmounted(() => {
 .identify-panel .stats-actions {
   justify-content: flex-start;
   flex-wrap: wrap;
+}
+
+.identify-preview-note {
+  border: 1px solid var(--overlay-border);
+  border-radius: var(--popup-item-radius, 8px);
+  padding: 6px 8px;
+  color: var(--text-secondary);
+  background: rgba(45, 140, 240, 0.08);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.identify-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.identify-actions-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.identify-actions .btn,
+.identify-stats-btn {
+  width: 100%;
+  height: 32px;
+  min-height: 32px;
+}
+
+.identify-detail-panel {
+  position: absolute;
+  z-index: 9997;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid var(--overlay-border);
+  background: var(--bg-overlay);
+  box-shadow: var(--overlay-shadow);
+  backdrop-filter: blur(var(--overlay-blur));
+  border-radius: var(--popup-radius, 8px);
+}
+
+.identify-detail-panel .stats-head {
+  flex-shrink: 0;
+  min-height: var(--popup-header-height, 44px);
+  padding: var(--popup-header-padding, 0 12px);
+  border-bottom: 1px solid var(--overlay-border);
+  border-radius: var(--popup-radius, 8px) var(--popup-radius, 8px) 0 0;
+  background: var(--popup-header-bg);
+  cursor: default;
+}
+
+.identify-detail-panel .identify-panel-body {
+  align-content: start;
+}
+
+.identify-detail-list {
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.identify-detail-row {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.identify-detail-row .v {
+  text-align: left;
+  word-break: break-all;
 }
 
 .identify-panel .btn {
