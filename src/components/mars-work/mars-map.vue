@@ -150,6 +150,20 @@
               />
               <span>{{ Math.round(populationOnMapOpacity * 100) }}%</span>
             </div>
+            <div v-if="c.key === 'economy' && statsOnMapUi.economy" class="population-onmap-opacity">
+              <span>上图不透明度</span>
+              <input
+                v-model.number="economyOnMapOpacity"
+                class="population-onmap-opacity-slider"
+                type="range"
+                min="0.2"
+                max="1"
+                step="0.05"
+                aria-label="调整经济上图不透明度"
+                @input="handleEconomyOnMapOpacityInput"
+              />
+              <span>{{ Math.round(economyOnMapOpacity * 100) }}%</span>
+            </div>
 
             <div v-if="isStatsCardBodyVisible(c.key)" class="card-body">
               <div v-if="c.key === 'population'" class="population-view-switch">
@@ -168,7 +182,8 @@
                   'is-loading': getCardState(c.key).loading,
                   'is-empty': getCardState(c.key).empty,
                   'is-error': !!getCardState(c.key).error,
-                  'population-profile': c.key === 'population'
+                  'population-profile': c.key === 'population',
+                  'economy-distribution': c.key === 'economy'
                 }"
                 @wheel.prevent="adjustCardLevel(c.key, $event)"
               >
@@ -367,9 +382,10 @@ import { getContextMenu as getNewContextMenu } from "@mars/utils/contextmenu/con
 import type { ContextMenuOptions } from "@mars/utils/contextmenu/types"
 
 import { computed, nextTick, onUnmounted, onMounted, reactive, ref, toRaw, watch } from "vue"
-import { buildPopulationLatitudeProfileOption, buildStatsChartOption, getStatsDivisionLabel } from "@/utils/stats-chart-model"
+import { buildEconomyDistributionOption, buildPopulationLatitudeProfileOption, buildStatsChartOption, getStatsDivisionLabel } from "@/utils/stats-chart-model"
 import { buildPopulationLatitudeProfile } from "@/utils/population-latitude-profile"
 import {
+  getGridDatasetForStatsCard,
   GRID_DENSITY_SOURCES,
   loadGridDensityStatistics,
   type GridDensityDataset,
@@ -757,10 +773,13 @@ let populationCameraHandler: (() => void) | null = null
 let populationRenderRun = 0
 let populationRefreshTimer: number | null = null
 let populationOpacityTimer: number | null = null
+let economyOpacityTimer: number | null = null
 const populationOnMapOpacity = ref(0.65)
+const economyOnMapOpacity = ref(0.65)
 const populationHiddenDrawGraphics: Array<{ graphic: any; show: boolean }> = []
 const populationStatsImageryLayers: any[] = []
 let populationStatsIdentifyCleanup: (() => void) | null = null
+let economyStatsIdentifyCleanup: (() => void) | null = null
 let populationCellPrimitive: any = null
 let populationSourceLayerVisibility: { layer: any; show: boolean } | null = null
 
@@ -1797,6 +1816,20 @@ function updateCardState(key: string, patch: Partial<StatsCardState>) {
   Object.assign(statsCardState[key], patch)
 }
 
+function buildCardChartOption(key: StatsCardKey, rows: Array<Record<string, any>>) {
+  if (key === "population") {
+    return buildPopulationLatitudeProfileOption(populationProfile.value.latitude, populationProfile.value.points)
+  }
+  if (key === "economy") {
+    const el = chartEls.get(key)
+    return buildEconomyDistributionOption(gridStatsResults.get(key)?.selectedCells || [], {
+      width: el?.clientWidth || 0,
+      height: el?.clientHeight || 0
+    })
+  }
+  return buildStatsChartOption(key, rows)
+}
+
 function canExportCard(key: string) {
   const state = getCardState(key)
   return !state.loading && !state.error && !state.empty && (statsDataByKey.get(key)?.length || 0) > 0
@@ -1896,7 +1929,13 @@ function renderCard(key: StatsCardKey) {
     }
     const rows = buildCardData(key)
     statsDataByKey.set(key, rows)
-    if (!rows.length) {
+    // 经济二维图使用 selectedCells，而不是分级统计 rows。
+    // rows 即使有固定分级桶，selectedCells 仍可能因选区覆盖率或 NoData 被过滤为空；
+    // 此时继续 setOption 只会得到空 heatmap/scatter，看起来像图表消失。
+    const hasChartData = key === "economy"
+      ? (gridStatsResults.get(key)?.selectedCells.length || 0) > 0
+      : rows.length > 0
+    if (!hasChartData) {
       chart.clear?.()
       updateCardState(key, { loading: false, empty: true, error: null })
       // #region debug-point D:render-empty-rows
@@ -1909,9 +1948,7 @@ function renderCard(key: StatsCardKey) {
       updateCardState(key, { loading: false, empty: true, error: null })
       return
     }
-    const option = key === "population"
-      ? buildPopulationLatitudeProfileOption(populationProfile.value.latitude, populationProfile.value.points)
-      : buildStatsChartOption(key, rows)
+    const option = buildCardChartOption(key, rows)
     // #region debug-point C:set-option-before
     statsBlankChartDebug("C", "renderCard before setOption", {
       key,
@@ -2265,7 +2302,7 @@ function loadRealGridStatsCard(key: "population" | "economy", ringKey: string) {
   const controller = new AbortController()
   gridStatsControllers.set(key, controller)
   updateCardState(key, { loading: true, empty: false, error: null })
-  const dataset: GridDensityDataset = "gdp"
+  const dataset: GridDensityDataset = getGridDatasetForStatsCard(key)
   loadGridDensityStatistics(dataset, activeRing.value, controller.signal)
     .then((result) => {
       if (controller.signal.aborted || JSON.stringify(activeRing.value) !== ringKey) { return }
@@ -2304,8 +2341,19 @@ function clearGridStatsOnMap() {
   clearPopulationStatsImagery()
   populationStatsIdentifyCleanup?.()
   populationStatsIdentifyCleanup = null
+  economyStatsIdentifyCleanup?.()
+  economyStatsIdentifyCleanup = null
   restorePopulationSourceLayer()
   restorePopulationDrawGraphics()
+}
+
+function handleEconomyOnMapOpacityInput() {
+  if (!statsOnMapUi.economy) { return }
+  if (economyOpacityTimer != null) { window.clearTimeout(economyOpacityTimer) }
+  economyOpacityTimer = window.setTimeout(() => {
+    economyOpacityTimer = null
+    renderGridStatsOnMap("economy")
+  }, 80)
 }
 
 function hidePopulationSourceLayer() {
@@ -2341,6 +2389,20 @@ function installPopulationStatsIdentify(cells: Array<{ west: number; south: numb
   }
   map.on(mars3d.EventType.click, handleClick)
   populationStatsIdentifyCleanup = () => map.off(mars3d.EventType.click, handleClick)
+}
+
+function installEconomyStatsIdentify(cells: Array<{ west: number; south: number; east: number; north: number; value: number; total: number }>) {
+  if (!map || economyStatsIdentifyCleanup) { return }
+  const handleClick = (event: any) => {
+    if (!statsOnMapUi.economy || !event?.cartesian) { return }
+    let point: any
+    try { point = mars3d.LngLatPoint.fromCartesian(event.cartesian) } catch { return }
+    const cell = cells.find((item) => point.lng >= item.west && point.lng <= item.east && point.lat >= item.south && point.lat <= item.north)
+    if (!cell) { return }
+    map.openPopup?.([point.lng, point.lat], `经度：${point.lng.toFixed(5)}°E<br/>纬度：${point.lat.toFixed(5)}°N<br/>GDP密度：${Number(cell.value).toLocaleString()} 万元/km²<br/>格网GDP总量：${Math.round(Number(cell.total)).toLocaleString()} 万元`)
+  }
+  map.on(mars3d.EventType.click, handleClick)
+  economyStatsIdentifyCleanup = () => map.off(mars3d.EventType.click, handleClick)
 }
 
 function renderPopulationStatsImagery(cells: Array<{ row: number; column: number; west: number; south: number; east: number; north: number; value: number; total: number }>) {
@@ -2421,8 +2483,10 @@ function renderGridStatsOnMap(key: "population" | "economy") {
     renderPopulationStatsImagery(result.selectedCells as any)
     return
   }
+  hidePopulationDrawGraphics()
   const Cesium = (mars3d as any).Cesium
   const dataset: GridDensityDataset = "gdp"
+  const alpha = Math.round(Math.min(1, Math.max(0.2, Number(economyOnMapOpacity.value) || 0.65)) * 255)
   const instances = result.selectedCells.map((cell) => {
     const [red, green, blue] = gridCellColor(dataset, cell.value)
     return new Cesium.GeometryInstance({
@@ -2430,7 +2494,7 @@ function renderGridStatsOnMap(key: "population" | "economy") {
         rectangle: Cesium.Rectangle.fromDegrees(cell.west, cell.south, cell.east, cell.north),
         vertexFormat: Cesium.PerInstanceColorAppearance.VERTEX_FORMAT
       }),
-      attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(Cesium.Color.fromBytes(red, green, blue, 215)) }
+      attributes: { color: Cesium.ColorGeometryInstanceAttribute.fromColor(Cesium.Color.fromBytes(red, green, blue, alpha)) }
     })
   })
   gridStatsOverlayPrimitive = map.scene.primitives.add(new Cesium.GroundPrimitive({
@@ -2438,6 +2502,7 @@ function renderGridStatsOnMap(key: "population" | "economy") {
     appearance: new Cesium.PerInstanceColorAppearance({ flat: true, translucent: true }),
     asynchronous: true
   }))
+  installEconomyStatsIdentify(result.selectedCells)
   map.scene.requestRender?.()
 }
 
@@ -4317,6 +4382,10 @@ onUnmounted(() => {
     window.clearTimeout(populationOpacityTimer)
     populationOpacityTimer = null
   }
+  if (economyOpacityTimer != null) {
+    window.clearTimeout(economyOpacityTimer)
+    economyOpacityTimer = null
+  }
   gridStatsControllers.forEach((controller) => controller.abort())
   gridStatsControllers.clear()
   gridStatsResults.clear()
@@ -4795,6 +4864,11 @@ onUnmounted(() => {
   min-height: 220px;
   position: relative;
   overflow: hidden;
+}
+
+.chart-wrap.economy-distribution {
+  height: 320px;
+  min-height: 320px;
 }
 
 .chart-wrap.is-loading,

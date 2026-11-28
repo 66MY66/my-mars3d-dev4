@@ -1,12 +1,46 @@
 import { describe, expect, it } from "vitest"
-import { buildPopulationLatitudeProfileOption, buildStatsChartOption, getStatsDivisionLabel } from "./stats-chart-model"
+import { buildEconomyDistributionOption, buildPopulationLatitudeProfileOption, buildStatsChartOption, getStatsDivisionLabel } from "./stats-chart-model"
 
 describe("statistics chart model", () => {
+  it("renders economy cells as a longitude-latitude scatter with value-weighted marginals", () => {
+    const option: any = buildEconomyDistributionOption([
+      { west: 100, east: 101, south: 20, north: 21, value: 10, total: 100, coverage: 1, effectiveAreaKm2: 10, row: 1, column: 1 },
+      { west: 100, east: 101, south: 21, north: 22, value: 20, total: 50, coverage: 0.5, effectiveAreaKm2: 5, row: 2, column: 1 },
+      { west: 101, east: 102, south: 20, north: 21, value: 90, total: 900, coverage: 0.8, effectiveAreaKm2: 8, row: 1, column: 2 },
+      { west: 102, east: 103, south: 22, north: 23, value: 0, total: 0, coverage: 1, effectiveAreaKm2: 10, row: 3, column: 3 }
+    ])
+    expect(option.series.map((item: any) => item.name)).toEqual(["低密度", "中密度", "高密度", "低密度", "中密度", "高密度", "低密度", "中密度", "高密度"])
+    expect(option.series.slice(0, 3).every((item: any) => item.type === "scatter")).toBe(true)
+    expect(option.series[0].data).toEqual([[100.5, 20.5, 10, 100, 1, 10]])
+    expect(option.series[1].data).toEqual([[100.5, 21.5, 20, 50, 0.5, 5]])
+    expect(option.series[2].data).toEqual([[101.5, 20.5, 90, 900, 0.8, 8]])
+    expect(option.xAxis[1].name).toBe("经度")
+    expect(option.yAxis[1].name).toBe("纬度")
+    expect(option.series[3].data[0][5]).toBe(100)
+    expect(option.series[4].data[0][5]).toBe(50)
+    const marginalTotal = option.series.slice(3).flatMap((item: any) => item.data).reduce((sum: number, value: number[]) => sum + value[5], 0)
+    expect(marginalTotal).toBe(2100)
+    const tooltip = option.tooltip.formatter({ seriesType: "scatter", seriesName: "低密度", value: option.series[0].data[0] })
+    expect(tooltip).toContain("万元/km²")
+    expect(tooltip).toContain("GDP总量：100 万元")
+    expect(tooltip).toContain("覆盖率：100%")
+    expect(tooltip).toContain("有效面积：10.00 km²")
+    expect(JSON.stringify(option)).not.toContain("核密度")
+  })
+
   it("renders real population density bins as a total-population bar chart", () => {
     const option: any = buildStatsChartOption("population", [{ 区间: "1–20", 格网数: 2, 面积: 3, 总量: 42 }])
     expect(option.xAxis.data).toEqual(["1–20"])
     expect(option.series[0].type).toBe("bar")
     expect(option.series[0].data).toEqual([42])
+  })
+
+  it("shows an empty economy distribution when every selected cell is zero", () => {
+    const option: any = buildEconomyDistributionOption([
+      { west: 100, east: 101, south: 20, north: 21, value: 0, total: 0, row: 1, column: 1 }
+    ])
+    expect(option.series[0].data).toEqual([])
+    expect(option.graphic[0].style.text).toBe("当前范围没有正的 GDP 密度")
   })
 
   it("renders real GDP density bins as a GDP-total bar chart", () => {

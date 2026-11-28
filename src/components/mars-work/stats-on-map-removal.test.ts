@@ -31,6 +31,9 @@ describe("综合统计面板旧上图功能", () => {
     expect(toggleSource).toContain("clearGridStatsOnMap()")
     expect(toggleSource).toContain("renderGridStatsOnMap(key)")
     expect(toggleSource).toContain("loadRealGridStatsCard(key, ringKey)")
+    expect(source).toContain("installEconomyStatsIdentify")
+    expect(source).toContain("GDP密度：")
+    expect(source).toContain("格网GDP总量：")
   })
 })
 

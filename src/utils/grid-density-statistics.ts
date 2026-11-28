@@ -2,6 +2,11 @@ import { area, featureCollection, intersect, polygon } from "@turf/turf"
 import { fromUrl } from "geotiff"
 
 export type GridDensityDataset = "population" | "gdp"
+export type GridStatsCardKey = "population" | "economy"
+
+export function getGridDatasetForStatsCard(key: GridStatsCardKey): GridDensityDataset {
+  return key === "population" ? "population" : "gdp"
+}
 type Ring = Array<[number, number]>
 
 export const GRID_CELL_COVERAGE_THRESHOLD = 0.4
@@ -59,6 +64,7 @@ export type SelectedDensityCell = {
   value: number
   coverage: number
   areaKm2: number
+  effectiveAreaKm2: number
   total: number
   west: number
   south: number
@@ -121,8 +127,9 @@ export function computeGridDensityStatistics(input: { dataset: GridDensityDatase
 column: column + (raster.columnOffset || 0),
 value,
 coverage,
-areaKm2,
-total: value * areaKm2,
+        areaKm2,
+        effectiveAreaKm2: areaKm2 * coverage,
+        total: value * areaKm2 * coverage,
         west,
 south,
 east,
@@ -132,14 +139,14 @@ north
   }
 
   const total = selectedCells.reduce((sum, cell) => sum + cell.total, 0)
-  const selectedAreaKm2 = selectedCells.reduce((sum, cell) => sum + cell.areaKm2, 0)
+  const selectedAreaKm2 = selectedCells.reduce((sum, cell) => sum + cell.effectiveAreaKm2, 0)
   const values = selectedCells.map((cell) => cell.value)
   const rows = source.bins.map((bin) => {
     const cells = selectedCells.filter((cell) => cell.value >= bin.min && cell.value <= bin.max)
     return {
       区间: bin.label,
       格网数: cells.length,
-      面积: cells.reduce((sum, cell) => sum + cell.areaKm2, 0),
+      面积: cells.reduce((sum, cell) => sum + cell.effectiveAreaKm2, 0),
       总量: cells.reduce((sum, cell) => sum + cell.total, 0),
       平均密度: cells.length ? cells.reduce((sum, cell) => sum + cell.value, 0) / cells.length : 0
     }
